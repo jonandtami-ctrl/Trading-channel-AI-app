@@ -1,0 +1,1 @@
+# Trading-channel-AI-app
