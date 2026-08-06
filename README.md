@@ -16,7 +16,7 @@ Covered by unit tests in `src/lib/__tests__` (`npm test`).
 ## Data
 
 - **Crypto** (BTC, ETH, SOL) — live from Binance's public klines API, fetched client-side.
-- **Stocks** (15 symbols) — attempts Yahoo Finance client-side; since Yahoo doesn't send CORS headers for browser requests, this will fall back to bundled demo data on a static host. A `LIVE`/`DEMO` badge always shows which one you're looking at.
+- **Stocks** (15 symbols) — live from Yahoo Finance via a server-side proxy (`src/app/api/stocks/[symbol]/route.ts`), since Yahoo doesn't send CORS headers for direct browser requests. Falls back to bundled demo data if either source is unreachable. A `LIVE`/`DEMO` badge always shows which one you're looking at.
 
 ## Running locally
 
@@ -27,10 +27,12 @@ npm run dev
 
 ## Deploying
 
-Pushing to `main` or `claude/channel-scanner-trading-7fbeu5` builds a static
-export and deploys it to GitHub Pages via `.github/workflows/deploy.yml`.
-One-time setup: in the repo's **Settings → Pages**, set **Source** to
-**GitHub Actions**.
+Deploys on Vercel: import this repo at vercel.com, framework preset
+Next.js is auto-detected, no config needed. Every push to a branch gets
+its own preview URL; pushes to `main` go to production.
+
+`.github/workflows/ci.yml` runs the test suite and a production build on
+every push, independent of deployment.
 
 ## Installing on iPhone
 
