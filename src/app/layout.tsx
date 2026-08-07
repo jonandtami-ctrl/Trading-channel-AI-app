@@ -1,18 +1,19 @@
 import type { Metadata, Viewport } from 'next';
+import { BASE_PATH } from '@/lib/basePath';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Channel Scanner',
   description: 'Scans crypto and stock charts for support/resistance channels and breakout alerts.',
-  manifest: '/manifest.json',
+  manifest: `${BASE_PATH}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
     title: 'Channel Scanner',
   },
   icons: {
-    icon: '/icon.svg',
-    apple: '/apple-touch-icon.png',
+    icon: `${BASE_PATH}/icon.svg`,
+    apple: `${BASE_PATH}/apple-touch-icon.png`,
   },
 };
 
