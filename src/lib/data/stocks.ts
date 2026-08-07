@@ -1,30 +1,13 @@
 import type { Candle } from '../types';
 
-const CORS_PROXY = 'https://corsproxy.io/?url=';
-
-/**
- * Yahoo Finance's chart endpoint doesn't send CORS headers, so a direct
- * browser fetch is rejected. We try it anyway (works if run through a
- * server), then fall back to a public CORS proxy as a best effort. Either
- * path can legitimately fail — callers should fall back to demo data.
- */
+/** Calls our own /api/stocks proxy (server-side, so Yahoo's missing CORS headers don't matter). */
 export async function fetchStockCandles(symbol: string): Promise<Candle[]> {
-  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
-
-  try {
-    return await fetchYahoo(target);
-  } catch {
-    return await fetchYahoo(CORS_PROXY + encodeURIComponent(target));
-  }
-}
-
-async function fetchYahoo(url: string): Promise<Candle[]> {
-  const res = await fetch(url, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
+  const res = await fetch(`/api/stocks/${symbol}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Stock proxy request failed: ${res.status}`);
 
   const json = await res.json();
   const result = json?.chart?.result?.[0];
-  if (!result) throw new Error('Unexpected Yahoo response shape');
+  if (!result) throw new Error('Unexpected response shape');
 
   const timestamps: number[] = result.timestamp ?? [];
   const quote = result.indicators?.quote?.[0] ?? {};
@@ -45,6 +28,6 @@ async function fetchYahoo(url: string): Promise<Candle[]> {
     });
   }
 
-  if (candles.length === 0) throw new Error('No usable candles in Yahoo response');
+  if (candles.length === 0) throw new Error('No usable candles in response');
   return candles;
 }

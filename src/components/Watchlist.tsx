@@ -42,7 +42,7 @@ export function Watchlist({ results, names }: { results: ScanResult[]; names: Re
         const last = result.candles[result.candles.length - 1];
         const status = statusFor(result);
         return (
-          <Link key={result.symbol} href={`/symbol/${result.symbol}/`} className="watchlist-row">
+          <Link key={result.symbol} href={`/symbol/${result.symbol}`} className="watchlist-row">
             <div className="row-left">
               <span className="row-symbol">{result.symbol}</span>
               <span className="row-name">{names[result.symbol] ?? ''}</span>
