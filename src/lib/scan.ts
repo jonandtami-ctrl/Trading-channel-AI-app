@@ -34,13 +34,19 @@ export function urgencyScore(result: ScanResult): number {
 export type Signal = 'buy' | 'sell' | 'watch_support' | 'watch_resistance' | null;
 
 /**
- * Turns a result's alerts into a single trade call: a confirmed breakout
- * or a bounce off support is a BUY; a confirmed breakdown or a bounce off
- * (rejection at) resistance is a SELL. Merely approaching a level isn't a
- * confirmed reversal yet, so it's a WATCH, not a firm call.
+ * Turns a result's alerts into a single trade call, following the
+ * channel-trading pattern of buying at the bottom and selling at the
+ * top: a bounce off support (price was rejected back up off the floor)
+ * is a BUY. A confirmed breakdown or a bounce off (rejection at)
+ * resistance is a SELL. A breakout is deliberately *not* a BUY — once
+ * price has closed above resistance the channel is broken and price is
+ * sitting up near the old resistance line, not bouncing off support, so
+ * calling it a BUY the same way misrepresents where in the range it
+ * actually is. Merely approaching a level isn't a confirmed reversal
+ * yet, so it's a WATCH, not a firm call.
  */
 export function getSignal(result: ScanResult): Signal {
-  if (result.alerts.some((a) => a.type === 'breakout' || a.type === 'bounce_support')) return 'buy';
+  if (result.alerts.some((a) => a.type === 'bounce_support')) return 'buy';
   if (result.alerts.some((a) => a.type === 'breakdown' || a.type === 'bounce_resistance')) return 'sell';
   if (result.alerts.some((a) => a.type === 'approaching_support')) return 'watch_support';
   if (result.alerts.some((a) => a.type === 'approaching_resistance')) return 'watch_resistance';
@@ -89,7 +95,7 @@ export interface SignalDetail {
   risk: RiskLevel | null;
 }
 
-const BUY_TYPES: Alert['type'][] = ['breakout', 'bounce_support'];
+const BUY_TYPES: Alert['type'][] = ['bounce_support'];
 const SELL_TYPES: Alert['type'][] = ['breakdown', 'bounce_resistance'];
 
 /** Full picture for a BUY/SELL result: the call, how strong the move is, and the risk of chasing it. */

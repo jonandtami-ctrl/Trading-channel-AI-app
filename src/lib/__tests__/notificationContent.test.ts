@@ -16,7 +16,7 @@ const TOMORROW = '2026-08-09';
 
 describe('computeNewSignals — simulates repeated auto-refresh cycles', () => {
   it('flags a fresh buy signal on the first scan', () => {
-    const results = [makeResult('AAPL', [alert('breakout', 110)])];
+    const results = [makeResult('AAPL', [alert('bounce_support', 90)])];
     const { newBuys, newSells, nextSeen } = computeNewSignals(results, new Set(), TODAY);
     expect(newBuys).toEqual(['AAPL']);
     expect(newSells).toEqual([]);
@@ -24,7 +24,7 @@ describe('computeNewSignals — simulates repeated auto-refresh cycles', () => {
   });
 
   it('does not re-notify the same signal on the next refresh (e.g. 20 minutes later)', () => {
-    const results = [makeResult('AAPL', [alert('breakout', 110)])];
+    const results = [makeResult('AAPL', [alert('bounce_support', 90)])];
     const first = computeNewSignals(results, new Set(), TODAY);
 
     // Simulate the next scheduled rescan seeing the exact same still-active signal.
@@ -34,11 +34,11 @@ describe('computeNewSignals — simulates repeated auto-refresh cycles', () => {
   });
 
   it('flags a genuinely new signal that appears on a later refresh without re-flagging the old one', () => {
-    const first = computeNewSignals([makeResult('AAPL', [alert('breakout', 110)])], new Set(), TODAY);
+    const first = computeNewSignals([makeResult('AAPL', [alert('bounce_support', 90)])], new Set(), TODAY);
 
-    // Next rescan: AAPL is still breaking out, but MSFT newly breaks down too.
+    // Next rescan: AAPL is still bouncing off the same support, but MSFT newly breaks down too.
     const second = computeNewSignals(
-      [makeResult('AAPL', [alert('breakout', 110)]), makeResult('MSFT', [alert('breakdown', 90)])],
+      [makeResult('AAPL', [alert('bounce_support', 90)]), makeResult('MSFT', [alert('breakdown', 90)])],
       first.nextSeen,
       TODAY
     );
@@ -49,8 +49,8 @@ describe('computeNewSignals — simulates repeated auto-refresh cycles', () => {
   });
 
   it('re-flags the same signal again once the date rolls over', () => {
-    const first = computeNewSignals([makeResult('AAPL', [alert('breakout', 110)])], new Set(), TODAY);
-    const nextDay = computeNewSignals([makeResult('AAPL', [alert('breakout', 110)])], first.nextSeen, TOMORROW);
+    const first = computeNewSignals([makeResult('AAPL', [alert('bounce_support', 90)])], new Set(), TODAY);
+    const nextDay = computeNewSignals([makeResult('AAPL', [alert('bounce_support', 90)])], first.nextSeen, TOMORROW);
     expect(nextDay.newBuys).toEqual(['AAPL']);
   });
 

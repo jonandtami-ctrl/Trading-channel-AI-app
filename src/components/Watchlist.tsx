@@ -20,7 +20,7 @@ function signalPill(result: ScanResult): {
 
   if (detail.signal === 'buy') {
     return {
-      label: has('breakout') ? 'BUY · Breakout' : 'BUY · Bounce',
+      label: 'BUY · Bounce',
       color: colors.green,
       bg: `${colors.green}26`,
       icon: 'trending-up',

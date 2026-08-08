@@ -25,9 +25,12 @@ function makeChannel(supportPrice: number, resistancePrice: number): Channel {
 }
 
 describe('getSignal', () => {
-  it('calls breakout and a support bounce a BUY', () => {
-    expect(getSignal(makeResult([alert('breakout', 110)]))).toBe('buy');
+  it('calls a support bounce a BUY', () => {
     expect(getSignal(makeResult([alert('bounce_support', 90)]))).toBe('buy');
+  });
+
+  it('does NOT call a breakout a BUY — price is up near the old resistance line, not bouncing off support', () => {
+    expect(getSignal(makeResult([alert('breakout', 110)]))).toBeNull();
   });
 
   it('calls breakdown and a resistance bounce a SELL', () => {
@@ -90,7 +93,7 @@ describe('assessRisk', () => {
 describe('getSignalDetail', () => {
   it('pairs a BUY with its strength tier and risk relative to the channel width', () => {
     const channel = makeChannel(100, 110); // 10% wide
-    const result = makeResult([alert('breakout', 110, 9)], 119.9, [channel]); // strength 9% of a 10%-wide channel = 90% consumed
+    const result = makeResult([alert('bounce_support', 100, 9)], 109, [channel]); // strength 9% of a 10%-wide channel = 90% consumed
     const detail = getSignalDetail(result);
     expect(detail.signal).toBe('buy');
     expect(detail.strengthPct).toBe(9);
