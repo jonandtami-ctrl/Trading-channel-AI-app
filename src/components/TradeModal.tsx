@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors, radius, spacing } from '../constants/theme';
+import { cardShadow, colors, glowShadow, radius, spacing } from '../constants/theme';
 
 interface TradeModalProps {
   visible: boolean;
@@ -58,6 +59,7 @@ export function TradeModal({ visible, mode, symbol, defaultPrice, onCancel, onSu
 
           <View style={styles.row}>
             <Pressable style={[styles.button, styles.cancelButton]} onPress={onCancel}>
+              <Ionicons name="close" size={15} color={colors.textDim} />
               <Text style={styles.cancelText}>Cancel</Text>
             </Pressable>
             <Pressable
@@ -65,6 +67,7 @@ export function TradeModal({ visible, mode, symbol, defaultPrice, onCancel, onSu
               disabled={!valid}
               onPress={() => onSubmit(priceNum, mode === 'log' ? quantityNum : 0)}
             >
+              <Ionicons name="checkmark" size={15} color="#fff" />
               <Text style={styles.submitText}>{mode === 'log' ? 'Log Trade' : 'Close Trade'}</Text>
             </Pressable>
           </View>
@@ -88,6 +91,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
     gap: 6,
+    ...cardShadow,
   },
   title: {
     color: colors.text,
@@ -117,9 +121,12 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: radius.sm,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: radius.sm,
   },
   cancelButton: {
     backgroundColor: colors.bgCard,
@@ -133,6 +140,7 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     backgroundColor: colors.accent,
+    ...glowShadow(colors.accent),
   },
   disabled: {
     opacity: 0.4,

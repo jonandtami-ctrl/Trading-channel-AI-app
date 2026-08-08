@@ -68,9 +68,17 @@ of alerts (`src/lib/notifications.ts`):
 - **Instant buy/sell alerts** — fires right away whenever a scan finds a new BUY or SELL signal that hasn't already been flagged that day (deduped per symbol+signal+day so a 20-minute rescan doesn't repeat itself).
 - **Weekly Sunday 8pm digest** — a recurring local notification listing which stocks are sitting in an active channel. Rescheduled with fresh content every time the app is opened and finishes a scan — local notifications can't recompute their own content at fire time without the app running, so it reflects whatever was true the last time you had the app open that week.
 
+## Navigation
+
+A bottom tab bar (Dashboard / Journal, with `@expo/vector-icons` glyphs)
+replaces the old single scrolling screen + header link, so it reads as an
+actual app rather than one long page. Tapping into a symbol still pushes
+the chart/detail screen on top via the stack navigator, with a back
+gesture/button to return to whichever tab you came from.
+
 ## Project structure
 
 - `src/app/` — screens, file-based routing via `expo-router`
-  (`index.tsx` = sectioned dashboard, `symbol/[symbol].tsx` = chart + channel detail)
+  (`(tabs)/index.tsx` = sectioned dashboard, `(tabs)/journal.tsx` = trade journal, `symbol/[symbol].tsx` = chart + channel detail, pushed outside the tab bar)
 - `src/components/` — `CandleChart` (SVG candlesticks + support/resistance lines), `Watchlist`, `AlertsFeed`, `SectionHeader`, `LiveBadge`
 - `src/lib/` — the detection engine and data layer, plain TypeScript with no React Native or browser dependencies

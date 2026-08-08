@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { TIMEFRAMES, type Timeframe } from '../lib/timeframes';
-import { colors, radius, spacing } from '../constants/theme';
+import { colors, glowShadow, radius, spacing } from '../constants/theme';
 
 export function TimeframeSelector({
   selected,
@@ -46,6 +46,7 @@ const styles = StyleSheet.create({
   pillActive: {
     backgroundColor: `${colors.accent}26`,
     borderColor: colors.accent,
+    ...glowShadow(colors.accent),
   },
   label: {
     color: colors.textDim,

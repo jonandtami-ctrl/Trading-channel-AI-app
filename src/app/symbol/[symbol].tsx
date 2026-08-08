@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
@@ -16,7 +17,7 @@ import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
 import { TradeModal } from '../../components/TradeModal';
-import { colors, radius, spacing } from '../../constants/theme';
+import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
 const DETAIL_REFRESH_MS = 60 * 1000;
 
@@ -105,14 +106,17 @@ export default function SymbolScreen() {
 
         <View style={styles.actionRow}>
           <Pressable style={[styles.actionButton, pinned && styles.actionButtonActive]} onPress={handlePin}>
-            <Text style={[styles.actionText, pinned && styles.actionTextActive]}>{pinned ? '📌 Pinned' : '📍 Pin'}</Text>
+            <Ionicons name={pinned ? 'pin' : 'pin-outline'} size={14} color={pinned ? colors.accent : colors.textDim} />
+            <Text style={[styles.actionText, pinned && styles.actionTextActive]}>{pinned ? 'Pinned' : 'Pin'}</Text>
           </Pressable>
           {openTrade ? (
             <Pressable style={[styles.actionButton, styles.actionButtonRed]} onPress={() => setModalMode('close')}>
+              <Ionicons name="close-circle-outline" size={14} color={colors.red} />
               <Text style={[styles.actionText, styles.actionTextRed]}>Close Trade</Text>
             </Pressable>
           ) : (
             <Pressable style={[styles.actionButton, styles.actionButtonGreen]} onPress={() => setModalMode('log')}>
+              <Ionicons name="add-circle-outline" size={14} color={colors.green} />
               <Text style={[styles.actionText, styles.actionTextGreen]}>Log Trade</Text>
             </Pressable>
           )}
@@ -167,7 +171,10 @@ export default function SymbolScreen() {
 
               {backtest.trades.length > 0 && (
                 <View style={styles.backtestCard}>
-                  <Text style={styles.backtestTitle}>Test mode — hypothetical, not real trades</Text>
+                  <View style={styles.backtestTitleRow}>
+                    <Ionicons name="flask-outline" size={13} color={colors.purple} />
+                    <Text style={styles.backtestTitle}>Test mode — hypothetical, not real trades</Text>
+                  </View>
                   <Text style={styles.backtestSubtitle}>
                     If you&apos;d bought every support touch and sold every resistance touch on this channel:
                   </Text>
@@ -270,12 +277,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: spacing.md,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: radius.sm,
     backgroundColor: colors.bgCard,
     borderWidth: 1,
     borderColor: colors.border,
+    ...cardShadow,
   },
   actionButtonActive: {
     backgroundColor: `${colors.accent}26`,
@@ -320,6 +331,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.bgCard,
+    ...cardShadow,
   },
   backtestCard: {
     marginHorizontal: spacing.lg,
@@ -329,6 +341,12 @@ const styles = StyleSheet.create({
     borderColor: colors.purple,
     borderRadius: radius.md,
     backgroundColor: `${colors.purple}14`,
+    ...cardShadow,
+  },
+  backtestTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   backtestTitle: {
     color: colors.purple,

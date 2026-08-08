@@ -16,9 +16,8 @@ export default function RootLayout() {
           headerShadowVisible: false,
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'Channel Scanner' }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="symbol/[symbol]" options={{ title: '' }} />
-        <Stack.Screen name="journal" options={{ title: 'Journal' }} />
       </Stack>
     </SafeAreaProvider>
   );

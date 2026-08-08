@@ -1,23 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect, Link } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useScanner } from '../hooks/useScanner';
-import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../lib/data/symbols';
-import { closestLevelDistance, getSignal } from '../lib/scan';
-import type { ScanResult } from '../lib/types';
-import { loadPinnedSymbols } from '../lib/pins';
-import { loadTrades } from '../lib/journalStorage';
-import { Watchlist } from '../components/Watchlist';
-import { AlertsFeed } from '../components/AlertsFeed';
-import { LiveBadge } from '../components/LiveBadge';
-import { SectionHeader } from '../components/SectionHeader';
-import { colors, spacing } from '../constants/theme';
+import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useScanner } from '../../hooks/useScanner';
+import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../../lib/data/symbols';
+import { closestLevelDistance, getSignal } from '../../lib/scan';
+import type { ScanResult } from '../../lib/types';
+import { loadPinnedSymbols } from '../../lib/pins';
+import { loadTrades } from '../../lib/journalStorage';
+import { Watchlist } from '../../components/Watchlist';
+import { AlertsFeed } from '../../components/AlertsFeed';
+import { LiveBadge } from '../../components/LiveBadge';
+import { SectionHeader } from '../../components/SectionHeader';
+import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 import {
   requestNotificationPermission,
   scheduleWeeklyChannelAlert,
   notifyNewSignals,
   type PermissionStatus,
-} from '../lib/notifications';
+} from '../../lib/notifications';
 
 const CRYPTO_REFRESH_MS = 60 * 1000;
 const PRICE_LIMIT = 120;
@@ -88,6 +89,7 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {initialLoad ? (
         <View style={styles.spinnerWrap}>
+          <Ionicons name="pulse" size={28} color={colors.accent} />
           <Text style={styles.spinnerText}>Scanning crypto and the first batch of stocks…</Text>
           <Text style={styles.spinnerSubtext}>
             First load checks ~950 tickers, usually a minute or two. Results fill in below as they come in.
@@ -97,53 +99,83 @@ export default function DashboardScreen() {
         <>
           <View style={styles.headerCard}>
             <View style={styles.headerTop}>
-              <Text style={styles.title}>Channel Scanner</Text>
-              <View style={styles.headerActions}>
-                <LiveBadge isLive={anyLive} />
-                <Link href="/journal" asChild>
-                  <Pressable style={styles.journalButton}>
-                    <Text style={styles.journalButtonText}>Journal</Text>
-                  </Pressable>
-                </Link>
+              <View style={styles.brandRow}>
+                <View style={styles.brandIcon}>
+                  <Ionicons name="pulse" size={18} color={colors.accent} />
+                </View>
+                <Text style={styles.title}>Channel Scanner</Text>
               </View>
+              <LiveBadge isLive={anyLive} />
             </View>
             <Text style={styles.subtitle}>Support / resistance breakout monitor · picks under ${PRICE_LIMIT}</Text>
             {stockLoading && (
-              <Text style={styles.progressText}>
-                scanning… {scanned.toLocaleString()} / {total.toLocaleString()} (
-                {Math.round((scanned / total) * 100)}%)
-              </Text>
+              <View style={styles.progressRow}>
+                <Ionicons name="refresh" size={12} color={colors.blue} />
+                <Text style={styles.progressText}>
+                  scanning… {scanned.toLocaleString()} / {total.toLocaleString()} (
+                  {Math.round((scanned / total) * 100)}%)
+                </Text>
+              </View>
             )}
             <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
           </View>
 
+          <View style={styles.statsRow}>
+            <StatTile icon="trending-up" label="Buys" value={buys.length} color={colors.green} />
+            <StatTile icon="trending-down" label="Sells" value={sells.length} color={colors.red} />
+            <StatTile icon="eye" label="Watching" value={watchSupport.length + watchResistance.length} color={colors.amber} />
+            <StatTile icon="pin" label="Kept" value={keptResults.length} color={colors.accent} />
+          </View>
+
           {keptResults.length > 0 && (
             <>
-              <SectionHeader title="Pinned & Open Positions" count={keptResults.length} color={colors.accent} />
+              <SectionHeader title="Pinned & Open Positions" count={keptResults.length} color={colors.accent} icon="pin" />
               <Watchlist results={keptResults} names={names} />
             </>
           )}
 
-          <SectionHeader title="Crypto" color={colors.purple} />
+          <SectionHeader title="Crypto" color={colors.purple} icon="logo-bitcoin" />
           <Watchlist results={cryptoResults} names={names} />
 
-          <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} />
+          <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
           <Watchlist results={buys} names={names} />
 
-          <SectionHeader title="Sell Signals" count={sells.length} color={colors.red} />
+          <SectionHeader title="Sell Signals" count={sells.length} color={colors.red} icon="trending-down" />
           <Watchlist results={sells} names={names} />
 
-          <SectionHeader title="Watching — Near Support" count={watchSupport.length} color={colors.amber} />
+          <SectionHeader title="Watching — Near Support" count={watchSupport.length} color={colors.amber} icon="arrow-down-circle" />
           <Watchlist results={watchSupport} names={names} />
 
-          <SectionHeader title="Watching — Near Resistance" count={watchResistance.length} color={colors.amber} />
+          <SectionHeader title="Watching — Near Resistance" count={watchResistance.length} color={colors.amber} icon="arrow-up-circle" />
           <Watchlist results={watchResistance} names={names} />
 
-          <SectionHeader title="Alerts" color={colors.blue} />
+          <SectionHeader title="Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} />
         </>
       )}
     </ScrollView>
+  );
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  color,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <View style={[styles.statTile, { borderColor: `${color}44` }]}>
+      <View style={[styles.statIconWrap, { backgroundColor: `${color}22` }]}>
+        <Ionicons name={icon} size={15} color={color} />
+      </View>
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
   );
 }
 
@@ -173,36 +205,32 @@ const styles = StyleSheet.create({
   headerCard: {
     marginHorizontal: spacing.lg,
     marginTop: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     backgroundColor: colors.bgPanel,
     borderWidth: 1,
     borderColor: colors.border,
     gap: 6,
+    ...cardShadow,
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerActions: {
+  brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  journalButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: `${colors.accent}26`,
-    borderWidth: 1,
-    borderColor: colors.accent,
-  },
-  journalButtonText: {
-    color: colors.accent,
-    fontSize: 11,
-    fontWeight: '700',
+  brandIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.accent}22`,
   },
   title: {
     color: colors.text,
@@ -214,6 +242,11 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 11,
   },
+  progressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   progressText: {
     color: colors.blue,
     fontSize: 11,
@@ -224,6 +257,41 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontStyle: 'italic',
     marginTop: 2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  statTile: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    ...cardShadow,
+  },
+  statIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statValue: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: colors.textDim,
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   spinnerWrap: {
     padding: 40,
