@@ -12,7 +12,7 @@ import { loadPinnedSymbols, togglePin } from '../../lib/pins';
 import { unrealizedPnl, type Trade } from '../../lib/journal';
 import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
 import { LiveBadge } from '../../components/LiveBadge';
-import { CandleChart } from '../../components/CandleChart';
+import { ZoomableChart } from '../../components/ZoomableChart';
 import { BacktestPlayer } from '../../components/BacktestPlayer';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
@@ -135,7 +135,7 @@ export default function SymbolScreen() {
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <View style={styles.chartWrap}>
-        <CandleChart candles={result.candles} channels={result.channels} />
+        <ZoomableChart candles={result.candles} channels={result.channels} />
       </View>
 
       {result.channels.length > 0 ? (

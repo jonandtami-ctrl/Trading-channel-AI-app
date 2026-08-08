@@ -34,6 +34,11 @@ symbol at the new lookback window and reruns channel detection against
 it (`src/lib/timeframes.ts`), so the channels shown always match what's
 on screen — it's not just zooming the same dataset.
 
+Within a timeframe, the chart itself is pinch-to-zoomable
+(`src/components/ZoomableChart.tsx`, up to 5×, built on React Native's
+built-in `PanResponder` — no extra native dependencies) with +/− buttons
+and a reset control as well, then drag left/right to pan once zoomed in.
+
 ## Dashboard sections
 
 Picks are split into four sections, each capped independently:
