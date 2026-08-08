@@ -10,7 +10,7 @@ BG = (10, 14, 20)
 LINE = (88, 166, 255)
 PRICE = (63, 185, 80)
 
-def make_icon(size):
+def make_icon(size, margin_scale=1.0):
     px = [[BG for _ in range(size)] for _ in range(size)]
 
     def set_px(x, y, color, w=1):
@@ -28,9 +28,9 @@ def make_icon(size):
             y = round(y0 + (y1 - y0) * t)
             set_px(x, y, color, w)
 
-    margin = size * 0.18
-    top = size * 0.32
-    bottom = size * 0.68
+    margin = size * 0.18 * margin_scale
+    top = size * 0.5 - (size * 0.18)
+    bottom = size * 0.5 + (size * 0.18)
     lw = max(2, round(size * 0.018))
 
     # support / resistance lines
@@ -68,8 +68,9 @@ def write_png(path, px):
         f.write(png)
 
 if __name__ == '__main__':
-    out_dir = os.path.join(os.path.dirname(__file__), '..', 'public')
+    out_dir = os.path.join(os.path.dirname(__file__), '..', 'assets')
     os.makedirs(out_dir, exist_ok=True)
-    for size, name in [(192, 'icon-192.png'), (512, 'icon-512.png'), (180, 'apple-touch-icon.png')]:
-        write_png(os.path.join(out_dir, name), make_icon(size))
-        print('wrote', name)
+    write_png(os.path.join(out_dir, 'icon.png'), make_icon(1024))
+    write_png(os.path.join(out_dir, 'adaptive-icon.png'), make_icon(1024, margin_scale=2.2))
+    write_png(os.path.join(out_dir, 'splash-icon.png'), make_icon(400))
+    print('wrote icon.png, adaptive-icon.png, splash-icon.png')

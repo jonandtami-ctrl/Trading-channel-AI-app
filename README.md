@@ -1,8 +1,8 @@
 # Channel Scanner
 
-A trading-support web app that scans crypto and stock charts for horizontal
-support/resistance channels and flags when price is approaching, bouncing
-off, or breaking one.
+A trading-support mobile app (Expo / React Native) that scans crypto and
+stock charts for horizontal support/resistance channels and flags when
+price is approaching, bouncing off, or breaking one.
 
 ## How it works
 
@@ -15,26 +15,26 @@ Covered by unit tests in `src/lib/__tests__` (`npm test`).
 
 ## Data
 
-- **Crypto** (BTC, ETH, SOL) — live from Binance's public klines API, fetched client-side.
-- **Stocks** (15 symbols) — live from Yahoo Finance via a server-side proxy (`src/app/api/stocks/[symbol]/route.ts`), since Yahoo doesn't send CORS headers for direct browser requests. Falls back to bundled demo data if either source is unreachable. A `LIVE`/`DEMO` badge always shows which one you're looking at.
+- **Crypto** (BTC, ETH, SOL) — live from Binance's public klines API.
+- **Stocks** (15 symbols) — live from Yahoo Finance. Native apps aren't
+  subject to browser CORS restrictions, so this calls Yahoo directly, no
+  proxy needed.
+- Either source falls back to bundled demo data if unreachable. A
+  `LIVE`/`DEMO` badge always shows which one you're looking at.
 
-## Running locally
+## Running in Expo Go
 
 ```bash
 npm install
-npm run dev
+npx expo start
 ```
 
-## Deploying
+Scan the QR code that appears with the **Expo Go** app (App Store /
+Play Store) — no build, no hosting, no app store review.
 
-Deploys on Vercel: import this repo at vercel.com, framework preset
-Next.js is auto-detected, no config needed. Every push to a branch gets
-its own preview URL; pushes to `main` go to production.
+## Project structure
 
-`.github/workflows/ci.yml` runs the test suite and a production build on
-every push, independent of deployment.
-
-## Installing on iPhone
-
-Open the deployed site in Safari → Share → **Add to Home Screen**. It runs
-standalone (no browser chrome) with notch-safe padding.
+- `src/app/` — screens, file-based routing via `expo-router`
+  (`index.tsx` = watchlist dashboard, `symbol/[symbol].tsx` = chart + channel detail)
+- `src/components/` — `CandleChart` (SVG candlesticks + support/resistance lines), `Watchlist`, `AlertsFeed`, `LiveBadge`
+- `src/lib/` — the detection engine and data layer, plain TypeScript with no React Native or browser dependencies

@@ -1,10 +1,8 @@
-'use client';
-
 import { useEffect, useState } from 'react';
-import { fetchCandles } from './data/fetch';
-import { scanSymbol } from './scan';
-import type { ScanResult } from './types';
-import type { SymbolInfo } from './data/symbols';
+import { fetchCandles } from '../lib/data/fetch';
+import { scanSymbol } from '../lib/scan';
+import type { ScanResult } from '../lib/types';
+import type { SymbolInfo } from '../lib/data/symbols';
 
 export interface ScannerState {
   results: Record<string, ScanResult>;

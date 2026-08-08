@@ -1,6 +1,8 @@
 node_modules
-.next
-out
-.DS_Store
+.expo
+dist
+web-build
 *.tsbuildinfo
-next-env.d.ts
+expo-env.d.ts
+.DS_Store
+*.log

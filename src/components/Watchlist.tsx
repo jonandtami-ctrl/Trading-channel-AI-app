@@ -1,14 +1,15 @@
-'use client';
+import { Link } from 'expo-router';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { ScanResult } from '../lib/types';
+import { urgencyScore } from '../lib/scan';
+import { formatPrice } from '../lib/format';
+import { colors } from '../constants/theme';
 
-import Link from 'next/link';
-import type { ScanResult } from '@/lib/types';
-import { urgencyScore } from '@/lib/scan';
-
-function statusFor(result: ScanResult): { label: string; className: string } {
+function statusFor(result: ScanResult): { label: string; color: string; bg: string } {
   const breakout = result.alerts.find((a) => a.type === 'breakout');
   const breakdown = result.alerts.find((a) => a.type === 'breakdown');
-  if (breakout) return { label: 'Breakout', className: 'status-breakout' };
-  if (breakdown) return { label: 'Breakdown', className: 'status-breakdown' };
+  if (breakout) return { label: 'Breakout', color: colors.green, bg: `${colors.green}22` };
+  if (breakdown) return { label: 'Breakdown', color: colors.red, bg: `${colors.red}22` };
 
   const approaching = result.alerts.find(
     (a) => a.type === 'approaching_resistance' || a.type === 'approaching_support'
@@ -16,50 +17,105 @@ function statusFor(result: ScanResult): { label: string; className: string } {
   if (approaching) {
     return {
       label: approaching.type === 'approaching_resistance' ? 'Near resistance' : 'Near support',
-      className: 'status-approaching',
+      color: colors.amber,
+      bg: `${colors.amber}22`,
     };
   }
 
   const bounce = result.alerts.find((a) => a.type === 'bounce_support' || a.type === 'bounce_resistance');
-  if (bounce) return { label: 'Bounced', className: 'status-approaching' };
+  if (bounce) return { label: 'Bounced', color: colors.amber, bg: `${colors.amber}22` };
 
   const active = result.channels.find((c) => c.status === 'active');
-  if (active) return { label: 'In channel', className: 'status-calm' };
+  if (active) return { label: 'In channel', color: colors.textDim, bg: `${colors.textDim}18` };
 
-  return { label: 'No channel', className: 'status-calm' };
+  return { label: 'No channel', color: colors.textDim, bg: `${colors.textDim}18` };
 }
 
 export function Watchlist({ results, names }: { results: ScanResult[]; names: Record<string, string> }) {
   const sorted = [...results].sort((a, b) => urgencyScore(a) - urgencyScore(b));
 
   if (sorted.length === 0) {
-    return <div className="empty-state">No data yet.</div>;
+    return (
+      <View style={styles.empty}>
+        <Text style={styles.emptyText}>No data yet.</Text>
+      </View>
+    );
   }
 
   return (
-    <div className="watchlist">
+    <View>
       {sorted.map((result) => {
         const last = result.candles[result.candles.length - 1];
         const status = statusFor(result);
         return (
-          <Link key={result.symbol} href={`/symbol/${result.symbol}`} className="watchlist-row">
-            <div className="row-left">
-              <span className="row-symbol">{result.symbol}</span>
-              <span className="row-name">{names[result.symbol] ?? ''}</span>
-            </div>
-            <div className="row-right">
-              <div className="row-price">
-                <div>{last ? formatPrice(last.close) : '—'}</div>
-              </div>
-              <span className={`status-pill ${status.className}`}>{status.label}</span>
-            </div>
+          <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
+            <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+              <View>
+                <Text style={styles.symbol}>{result.symbol}</Text>
+                <Text style={styles.name}>{names[result.symbol] ?? ''}</Text>
+              </View>
+              <View style={styles.right}>
+                <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+                <View style={[styles.pill, { backgroundColor: status.bg }]}>
+                  <Text style={[styles.pillText, { color: status.color }]}>{status.label}</Text>
+                </View>
+              </View>
+            </Pressable>
           </Link>
         );
       })}
-    </div>
+    </View>
   );
 }
 
-export function formatPrice(n: number): string {
-  return n >= 100 ? `$${n.toFixed(2)}` : `$${n.toFixed(n >= 1 ? 3 : 5)}`;
-}
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: colors.bgPanel,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  rowPressed: {
+    backgroundColor: colors.bgPanelHover,
+  },
+  symbol: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  name: {
+    color: colors.textDim,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  right: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  price: {
+    color: colors.text,
+    fontSize: 13,
+  },
+  pill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  pillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  empty: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: colors.textDim,
+    fontSize: 12,
+  },
+});

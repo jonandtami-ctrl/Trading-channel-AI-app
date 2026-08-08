@@ -1,13 +1,17 @@
 import type { Candle } from '../types';
 
-/** Calls our own /api/stocks proxy (server-side, so Yahoo's missing CORS headers don't matter). */
+/**
+ * Native apps aren't subject to browser CORS restrictions, so we can call
+ * Yahoo Finance's chart endpoint directly — no proxy needed.
+ */
 export async function fetchStockCandles(symbol: string): Promise<Candle[]> {
-  const res = await fetch(`/api/stocks/${symbol}`, { cache: 'no-store' });
-  if (!res.ok) throw new Error(`Stock proxy request failed: ${res.status}`);
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
 
   const json = await res.json();
   const result = json?.chart?.result?.[0];
-  if (!result) throw new Error('Unexpected response shape');
+  if (!result) throw new Error('Unexpected Yahoo response shape');
 
   const timestamps: number[] = result.timestamp ?? [];
   const quote = result.indicators?.quote?.[0] ?? {};
@@ -28,6 +32,6 @@ export async function fetchStockCandles(symbol: string): Promise<Candle[]> {
     });
   }
 
-  if (candles.length === 0) throw new Error('No usable candles in response');
+  if (candles.length === 0) throw new Error('No usable candles in Yahoo response');
   return candles;
 }
