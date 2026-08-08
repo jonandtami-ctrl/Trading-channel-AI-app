@@ -22,7 +22,7 @@ import {
 
 const CRYPTO_REFRESH_MS = 60 * 1000;
 const PRICE_LIMIT = 120;
-const CAP = { buy: 10, sell: 10, watchSupport: 5, watchResistance: 5 };
+const CAP = { buy: 15, sell: 15, watchSupport: 5, watchResistance: 5 };
 
 function underLimit(r: ScanResult): boolean {
   const last = r.candles[r.candles.length - 1];

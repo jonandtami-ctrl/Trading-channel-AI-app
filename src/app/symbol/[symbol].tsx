@@ -13,6 +13,7 @@ import { unrealizedPnl, type Trade } from '../../lib/journal';
 import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
 import { LiveBadge } from '../../components/LiveBadge';
 import { CandleChart } from '../../components/CandleChart';
+import { BacktestPlayer } from '../../components/BacktestPlayer';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
@@ -170,37 +171,7 @@ export default function SymbolScreen() {
               </View>
 
               {backtest.trades.length > 0 && (
-                <View style={styles.backtestCard}>
-                  <View style={styles.backtestTitleRow}>
-                    <Ionicons name="flask-outline" size={13} color={colors.purple} />
-                    <Text style={styles.backtestTitle}>Test mode — hypothetical, not real trades</Text>
-                  </View>
-                  <Text style={styles.backtestSubtitle}>
-                    If you&apos;d bought every support touch and sold every resistance touch on this channel:
-                  </Text>
-                  <View style={styles.cardRow}>
-                    <Text style={styles.cardLabel}>Simulated trades</Text>
-                    <Text style={styles.cardValue}>{backtest.trades.length}</Text>
-                  </View>
-                  <View style={styles.cardRow}>
-                    <Text style={styles.cardLabel}>Wins / Losses</Text>
-                    <Text style={styles.cardValue}>
-                      {backtest.winCount} / {backtest.lossCount}
-                    </Text>
-                  </View>
-                  <View style={styles.cardRow}>
-                    <Text style={styles.cardLabel}>Total simulated return</Text>
-                    <Text
-                      style={[
-                        styles.cardValue,
-                        { color: backtest.totalReturnPct >= 0 ? colors.green : colors.red },
-                      ]}
-                    >
-                      {backtest.totalReturnPct >= 0 ? '+' : ''}
-                      {backtest.totalReturnPct.toFixed(1)}%
-                    </Text>
-                  </View>
-                </View>
+                <BacktestPlayer candles={result.candles} channel={channel} backtest={backtest} />
               )}
             </View>
           );
@@ -332,34 +303,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.bgCard,
     ...cardShadow,
-  },
-  backtestCard: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.purple,
-    borderRadius: radius.md,
-    backgroundColor: `${colors.purple}14`,
-    ...cardShadow,
-  },
-  backtestTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  backtestTitle: {
-    color: colors.purple,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  backtestSubtitle: {
-    color: colors.textDim,
-    fontSize: 11,
-    marginTop: 2,
-    marginBottom: spacing.sm,
   },
   cardRow: {
     flexDirection: 'row',

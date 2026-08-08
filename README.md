@@ -36,10 +36,10 @@ on screen — it's not just zooming the same dataset.
 
 ## Dashboard sections
 
-Picks are capped at 30 total, split into:
+Picks are split into four sections, each capped independently:
 
-- **Buy Signals** (up to 10) — breakouts and support bounces
-- **Sell Signals** (up to 10) — breakdowns and resistance rejections
+- **Buy Signals** (up to 15) — breakouts and support bounces
+- **Sell Signals** (up to 15) — breakdowns and resistance rejections
 - **Watching — Near Support** (up to 5) — approaching support, not confirmed yet
 - **Watching — Near Resistance** (up to 5) — approaching resistance, not confirmed yet
 
@@ -48,7 +48,7 @@ Picks are capped at 30 total, split into:
 - **Pin** (📍 button on any symbol's detail screen, `src/lib/pins.ts`) keeps that symbol permanently visible in a "Pinned & Open Positions" section at the top of the dashboard, regardless of whether it still qualifies for a Buy/Sell/Watch section that day — the daily rescan keeps finding new channels across the whole universe, but anything you've pinned won't get pushed out of view.
 - **Log Trade** / **Close Trade** (same screen) records a real trade — entry price, quantity, and an auto-stamped date — to a persistent journal (`src/lib/journal.ts` for the pure P&L/grouping logic, `src/lib/journalStorage.ts` for the on-device storage via `@react-native-async-storage/async-storage`). Logging a trade also pins that symbol automatically, same reasoning as above.
 - **Journal screen** (`src/app/journal.tsx`, reachable from the dashboard header) lists every trade grouped by year — 2026, 2027, and onward accumulate as separate sections, each with its own realized-gain/loss total — and has an **Export / Share CSV** button (per year or all-time) that opens the native share sheet so you can save it, email it, or print it for tax records.
-- **Test mode** — each symbol's channel shows a "Test mode" card (`src/lib/backtest.ts`) simulating what would have happened buying every historical touch of support and selling every touch of resistance on that specific channel: number of simulated trades, win/loss count, total simulated return. Clearly labeled as hypothetical — no fees or slippage modeled, not a promise about what happens next — it's there to gauge how clean the channel has actually traded, not as an auto-trader.
+- **Test mode replay** — each symbol's channel shows an animated "Test Mode — Replay" card (`src/lib/backtest.ts` for the simulation, `src/components/BacktestPlayer.tsx` for playback) that draws the channel's candles in over a few seconds with buy/sell markers popping up at each historical support/resistance touch, while Trades/Wins/Losses/Return tick up live as they happen. Play/Pause, restart, and a 1×/2× speed toggle are included. Clearly labeled as hypothetical — no fees or slippage modeled, not a promise about what happens next — it's there to gauge how clean the channel has actually traded, not as an auto-trader.
 
 ## Running in Expo Go
 

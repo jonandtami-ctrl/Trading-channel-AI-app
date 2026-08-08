@@ -1,14 +1,31 @@
 import { useState } from 'react';
 import { LayoutChangeEvent, View } from 'react-native';
-import Svg, { G, Line, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg';
 import type { Candle, Channel } from '../lib/types';
 import { colors } from '../constants/theme';
 
-const HEIGHT = 320;
+const DEFAULT_HEIGHT = 320;
 const PADDING_Y = 16;
 const PADDING_RIGHT = 52;
 
-export function CandleChart({ candles, channels }: { candles: Candle[]; channels: Channel[] }) {
+export interface ChartMarker {
+  index: number;
+  side: 'buy' | 'sell';
+}
+
+export function CandleChart({
+  candles,
+  channels,
+  markers,
+  revealCount,
+  height = DEFAULT_HEIGHT,
+}: {
+  candles: Candle[];
+  channels: Channel[];
+  markers?: ChartMarker[];
+  revealCount?: number;
+  height?: number;
+}) {
   const [width, setWidth] = useState(0);
 
   function onLayout(e: LayoutChangeEvent) {
@@ -16,8 +33,12 @@ export function CandleChart({ candles, channels }: { candles: Candle[]; channels
   }
 
   if (candles.length === 0 || width === 0) {
-    return <View style={{ height: HEIGHT }} onLayout={onLayout} />;
+    return <View style={{ height }} onLayout={onLayout} />;
   }
+
+  const visibleCount = revealCount ?? candles.length;
+  const visibleCandles = candles.slice(0, visibleCount);
+  const visibleMarkers = (markers ?? []).filter((m) => m.index < visibleCount);
 
   const plotWidth = width - PADDING_RIGHT;
   const prices = candles.flatMap((c) => [c.high, c.low]);
@@ -27,17 +48,18 @@ export function CandleChart({ candles, channels }: { candles: Candle[]; channels
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const range = maxPrice - minPrice || 1;
-  const plotHeight = HEIGHT - PADDING_Y * 2;
+  const plotHeight = height - PADDING_Y * 2;
 
   const y = (price: number) => PADDING_Y + plotHeight - ((price - minPrice) / range) * plotHeight;
 
   const slotWidth = plotWidth / candles.length;
   const bodyWidth = Math.max(1, Math.min(slotWidth * 0.6, 10));
   const x = (i: number) => i * slotWidth + slotWidth / 2;
+  const markerSize = Math.max(5, Math.min(slotWidth * 0.7, 9));
 
   return (
     <View onLayout={onLayout}>
-      <Svg width={width} height={HEIGHT}>
+      <Svg width={width} height={height}>
         {channels.map((channel, i) => {
           const lineColor = channel.status === 'broken' ? colors.amber : colors.blue;
           return (
@@ -70,7 +92,7 @@ export function CandleChart({ candles, channels }: { candles: Candle[]; channels
           );
         })}
 
-        {candles.map((c, i) => {
+        {visibleCandles.map((c, i) => {
           const up = c.close >= c.open;
           const color = up ? colors.green : colors.red;
           const cx = x(i);
@@ -88,6 +110,24 @@ export function CandleChart({ candles, channels }: { candles: Candle[]; channels
               />
             </G>
           );
+        })}
+
+        {visibleMarkers.map((m, i) => {
+          const candle = candles[m.index];
+          if (!candle) return null;
+          const cx = x(m.index);
+          const color = m.side === 'buy' ? colors.green : colors.red;
+          const points =
+            m.side === 'buy'
+              ? (() => {
+                  const baseY = y(candle.low) + markerSize + 4;
+                  return `${cx},${baseY - markerSize} ${cx - markerSize},${baseY} ${cx + markerSize},${baseY}`;
+                })()
+              : (() => {
+                  const baseY = y(candle.high) - markerSize - 4;
+                  return `${cx},${baseY + markerSize} ${cx - markerSize},${baseY} ${cx + markerSize},${baseY}`;
+                })();
+          return <Polygon key={`m-${i}`} points={points} fill={color} stroke={colors.bg} strokeWidth={1} />;
         })}
       </Svg>
     </View>
