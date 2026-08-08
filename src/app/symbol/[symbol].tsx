@@ -12,6 +12,7 @@ import { loadPinnedSymbols, togglePin } from '../../lib/pins';
 import { unrealizedPnl, type Trade } from '../../lib/journal';
 import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
 import { LiveBadge } from '../../components/LiveBadge';
+import { Disclaimer } from '../../components/Disclaimer';
 import { ZoomableChart } from '../../components/ZoomableChart';
 import { BacktestPlayer } from '../../components/BacktestPlayer';
 import { AlertsFeed } from '../../components/AlertsFeed';
@@ -77,11 +78,11 @@ export default function SymbolScreen() {
     setPinned(next.includes(symbol!));
   }
 
-  async function handleSubmit(price: number, quantity: number) {
+  async function handleSubmit(price: number, quantity: number, dateIso: string) {
     if (modalMode === 'log') {
-      setTrades(await logTrade(symbol!, price, quantity));
+      setTrades(await logTrade(symbol!, price, quantity, dateIso));
     } else if (modalMode === 'close' && openTrade) {
-      setTrades(await closeTrade(openTrade.id, price));
+      setTrades(await closeTrade(openTrade.id, price, dateIso));
     }
     setModalMode(null);
   }
@@ -104,6 +105,7 @@ export default function SymbolScreen() {
             </View>
           )}
         </View>
+        {signalMeta && <Disclaimer compact />}
 
         <View style={styles.actionRow}>
           <Pressable style={[styles.actionButton, pinned && styles.actionButtonActive]} onPress={handlePin}>

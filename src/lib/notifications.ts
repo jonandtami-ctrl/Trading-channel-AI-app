@@ -19,19 +19,29 @@ Notifications.setNotificationHandler({
 
 export type PermissionStatus = 'granted' | 'denied' | 'undetermined';
 
+/**
+ * On web, notification support depends entirely on the browser (and on
+ * iOS Safari, only works once the site is actually installed via "Add to
+ * Home Screen" — a regular tab can't get permission at all). None of
+ * that should ever crash the app, so every call here is defensive on web.
+ */
 export async function requestNotificationPermission(): Promise<PermissionStatus> {
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('weekly-alerts', {
-      name: 'Weekly channel alerts',
-      importance: Notifications.AndroidImportance.DEFAULT,
-    });
+  try {
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('weekly-alerts', {
+        name: 'Weekly channel alerts',
+        importance: Notifications.AndroidImportance.DEFAULT,
+      });
+    }
+
+    const existing = await Notifications.getPermissionsAsync();
+    if (existing.status === 'granted') return 'granted';
+
+    const requested = await Notifications.requestPermissionsAsync();
+    return requested.status as PermissionStatus;
+  } catch {
+    return 'denied';
   }
-
-  const existing = await Notifications.getPermissionsAsync();
-  if (existing.status === 'granted') return 'granted';
-
-  const requested = await Notifications.requestPermissionsAsync();
-  return requested.status as PermissionStatus;
 }
 
 /**
@@ -39,9 +49,12 @@ export async function requestNotificationPermission(): Promise<PermissionStatus>
  * Sunday-night notification with it. Local notifications can't recompute
  * their content at fire time — this only stays current if the app gets
  * opened at least once before the next Sunday, since that's what
- * refreshes the scheduled content.
+ * refreshes the scheduled content. Skipped on web: recurring/scheduled
+ * triggers aren't supported there the way they are on iOS/Android.
  */
 export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Promise<void> {
+  if (Platform.OS === 'web') return;
+
   const body = buildWeeklyDigestBody(stockResults);
 
   await Notifications.cancelScheduledNotificationAsync(WEEKLY_ALERT_ID).catch(() => {});
@@ -59,7 +72,7 @@ export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Pr
       hour: SUNDAY_HOUR,
       minute: SUNDAY_MINUTE,
     },
-  });
+  }).catch(() => {});
 }
 
 /**
@@ -81,7 +94,7 @@ export async function notifyNewSignals(stockResults: ScanResult[], seen: Set<str
       sound: true,
     },
     trigger: null,
-  });
+  }).catch(() => {});
 
   return nextSeen;
 }
@@ -99,5 +112,5 @@ export async function sendTestNotification(): Promise<void> {
       sound: true,
     },
     trigger: null,
-  });
+  }).catch(() => {});
 }

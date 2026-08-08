@@ -4,6 +4,11 @@ A trading-support mobile app (Expo / React Native) that scans crypto,
 stocks, and ETFs for horizontal support/resistance channels and calls
 out BUY / SELL / WATCH picks as they form.
 
+**Not financial advice.** This is a personal practice-trading tool —
+every signal is informational only, not a recommendation to buy or
+sell anything (`src/components/Disclaimer.tsx`, shown on the dashboard
+and on any symbol with an active signal). Trading involves risk of loss.
+
 ## How it works
 
 - **Pivots** — swing highs/lows found with a symmetric local-extreme window (`src/lib/pivots.ts`)
@@ -54,8 +59,8 @@ Picks are split into four sections, each capped independently:
 
 ## Pinning & the trade journal
 
-- **Pin** (📍 button on any symbol's detail screen, `src/lib/pins.ts`) keeps that symbol permanently visible in a "Pinned & Open Positions" section at the top of the dashboard, regardless of whether it still qualifies for a Buy/Sell/Watch section that day — the daily rescan keeps finding new channels across the whole universe, but anything you've pinned won't get pushed out of view.
-- **Log Trade** / **Close Trade** (same screen) records a real trade — entry price, quantity, and an auto-stamped date — to a persistent journal (`src/lib/journal.ts` for the pure P&L/grouping logic, `src/lib/journalStorage.ts` for the on-device storage via `@react-native-async-storage/async-storage`). Logging a trade also pins that symbol automatically, same reasoning as above.
+- **Pin** (button on any symbol's detail screen, `src/lib/pins.ts`) keeps that symbol permanently visible in a "Pinned & Open Positions" section at the top of the dashboard, regardless of whether it still qualifies for a Buy/Sell/Watch section that day — the daily rescan keeps finding new channels across the whole universe, but anything you've pinned won't get pushed out of view.
+- **Log Trade** / **Close Trade** (same screen) records a real trade — price, quantity, and an editable date + time (defaults to now, but you can back-date a trade you're logging after the fact) — to a persistent journal (`src/lib/journal.ts` for the pure P&L/grouping logic, `src/lib/journalStorage.ts` for the on-device storage via `@react-native-async-storage/async-storage`). Logging a trade also pins that symbol automatically, same reasoning as above.
 - **Journal screen** (`src/app/journal.tsx`, reachable from the dashboard header) lists every trade grouped by year — 2026, 2027, and onward accumulate as separate sections, each with its own realized-gain/loss total — and has an **Export / Share CSV** button (per year or all-time) that opens the native share sheet so you can save it, email it, or print it for tax records.
 - **Test mode replay** — each symbol's channel shows an animated "Test Mode — Replay" card (`src/lib/backtest.ts` for the simulation, `src/components/BacktestPlayer.tsx` for playback) that draws the channel's candles in over a few seconds with buy/sell markers popping up at each historical support/resistance touch, while Trades/Wins/Losses/Return tick up live as they happen. Play/Pause, restart, and a 1×/2× speed toggle are included. Clearly labeled as hypothetical — no fees or slippage modeled, not a promise about what happens next — it's there to gauge how clean the channel has actually traded, not as an auto-trader.
 
@@ -68,6 +73,36 @@ npx expo start
 
 Scan the QR code that appears with the **Expo Go** app (App Store /
 Play Store) — no build, no hosting, no app store review.
+
+## Running as a website (PWA)
+
+The same codebase also runs as a website via `react-native-web`, no
+separate rewrite required:
+
+```bash
+npm run build:web
+```
+
+Outputs a static site to `dist/`. Deployed to GitHub Pages under this
+repo's subpath, so `app.json`'s `experiments.baseUrl` is set to
+`/Trading-channel-AI-app` — asset URLs would silently 404 without it,
+since GitHub Pages project sites are served from a subpath, not the
+domain root. `scripts/inject_pwa_head.js` patches the exported
+`index.html` with the meta/link tags iOS Safari needs for "Add to Home
+Screen" to launch full-screen instead of as a bookmarked tab
+(`apple-mobile-web-app-capable`, `apple-touch-icon`, `manifest.json`) —
+that's a post-export patch rather than a `+html.tsx` custom document
+because Expo Router's static-render output mode (needed for `+html.tsx`
+to take effect) tries to server-render every screen at build time and
+breaks on this app's live-data-fetching screens.
+
+A couple of native-only APIs degrade gracefully on web instead of
+crashing: `shareTradesCsv` falls back to a plain browser download
+(`journalStorage.ts`) since there's no native share sheet, and the
+weekly recurring notification is skipped entirely on web since
+scheduled/recurring triggers aren't supported there — instant
+notifications (test button, new signals) still attempt to fire via the
+browser's Notification API where permission allows it.
 
 ## Notifications
 

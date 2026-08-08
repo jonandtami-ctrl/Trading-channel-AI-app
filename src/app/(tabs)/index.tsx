@@ -11,6 +11,7 @@ import { loadTrades } from '../../lib/journalStorage';
 import { Watchlist } from '../../components/Watchlist';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { LiveBadge } from '../../components/LiveBadge';
+import { Disclaimer } from '../../components/Disclaimer';
 import { SectionHeader } from '../../components/SectionHeader';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 import {
@@ -119,6 +120,7 @@ export default function DashboardScreen() {
               </View>
             )}
             <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
+            <Disclaimer compact />
           </View>
 
           <View style={styles.statsRow}>

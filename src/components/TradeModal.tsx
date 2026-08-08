@@ -9,23 +9,55 @@ interface TradeModalProps {
   symbol: string;
   defaultPrice: number;
   onCancel: () => void;
-  onSubmit: (price: number, quantity: number) => void;
+  onSubmit: (price: number, quantity: number, dateIso: string) => void;
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+function defaultDate(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function defaultTime(): string {
+  const d = new Date();
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Combines the date + time text fields into an ISO string, or null if either is unparseable. */
+function toIso(date: string, time: string): string | null {
+  const match = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(date.trim());
+  const timeMatch = /^(\d{1,2}):(\d{1,2})$/.exec(time.trim());
+  if (!match || !timeMatch) return null;
+
+  const [, y, mo, d] = match;
+  const [, h, mi] = timeMatch;
+  const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi));
+  return isNaN(dt.getTime()) ? null : dt.toISOString();
 }
 
 export function TradeModal({ visible, mode, symbol, defaultPrice, onCancel, onSubmit }: TradeModalProps) {
   const [price, setPrice] = useState(String(defaultPrice));
   const [quantity, setQuantity] = useState('1');
+  const [date, setDate] = useState(defaultDate());
+  const [time, setTime] = useState(defaultTime());
 
   useEffect(() => {
     if (visible) {
       setPrice(String(defaultPrice));
       setQuantity('1');
+      setDate(defaultDate());
+      setTime(defaultTime());
     }
   }, [visible, defaultPrice]);
 
   const priceNum = parseFloat(price);
   const quantityNum = parseFloat(quantity);
-  const valid = !isNaN(priceNum) && priceNum > 0 && (mode === 'close' || (!isNaN(quantityNum) && quantityNum > 0));
+  const dateIso = toIso(date, time);
+  const valid =
+    !isNaN(priceNum) && priceNum > 0 && dateIso !== null && (mode === 'close' || (!isNaN(quantityNum) && quantityNum > 0));
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -58,6 +90,34 @@ export function TradeModal({ visible, mode, symbol, defaultPrice, onCancel, onSu
           )}
 
           <View style={styles.row}>
+            <View style={styles.half}>
+              <Text style={styles.label}>{mode === 'log' ? 'Entry date' : 'Exit date'}</Text>
+              <TextInput
+                style={styles.input}
+                value={date}
+                onChangeText={setDate}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="none"
+              />
+            </View>
+            <View style={styles.half}>
+              <Text style={styles.label}>Time</Text>
+              <TextInput
+                style={styles.input}
+                value={time}
+                onChangeText={setTime}
+                placeholder="HH:MM"
+                placeholderTextColor={colors.textDim}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
+          {dateIso === null && (date.length > 0 || time.length > 0) && (
+            <Text style={styles.errorText}>Use YYYY-MM-DD and 24-hour HH:MM (e.g. 2026-08-08 and 14:30).</Text>
+          )}
+
+          <View style={styles.row}>
             <Pressable style={[styles.button, styles.cancelButton]} onPress={onCancel}>
               <Ionicons name="close" size={15} color={colors.textDim} />
               <Text style={styles.cancelText}>Cancel</Text>
@@ -65,7 +125,7 @@ export function TradeModal({ visible, mode, symbol, defaultPrice, onCancel, onSu
             <Pressable
               style={[styles.button, styles.submitButton, !valid && styles.disabled]}
               disabled={!valid}
-              onPress={() => onSubmit(priceNum, mode === 'log' ? quantityNum : 0)}
+              onPress={() => onSubmit(priceNum, mode === 'log' ? quantityNum : 0, dateIso!)}
             >
               <Ionicons name="checkmark" size={15} color="#fff" />
               <Text style={styles.submitText}>{mode === 'log' ? 'Log Trade' : 'Close Trade'}</Text>
@@ -112,6 +172,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 8,
     fontSize: 14,
+    marginTop: 4,
+  },
+  half: {
+    flex: 1,
+  },
+  errorText: {
+    color: colors.red,
+    fontSize: 10,
     marginTop: 4,
   },
   row: {
