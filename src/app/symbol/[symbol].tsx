@@ -1,15 +1,19 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
+import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
 import { LiveBadge } from '../../components/LiveBadge';
 import { CandleChart } from '../../components/CandleChart';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
+import { TimeframeSelector } from '../../components/TimeframeSelector';
 import { colors, radius, spacing } from '../../constants/theme';
+
+const DETAIL_REFRESH_MS = 60 * 1000;
 
 const SIGNAL_META: Record<string, { label: string; color: string }> = {
   buy: { label: 'BUY', color: colors.green },
@@ -22,7 +26,8 @@ export default function SymbolScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const navigation = useNavigation();
   const info = symbol ? findSymbol(symbol) : undefined;
-  const { results, loading } = useScanner(info ? [info] : []);
+  const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
+  const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS, timeframe);
   const result = symbol ? results[symbol] : undefined;
 
   useEffect(() => {
@@ -68,6 +73,8 @@ export default function SymbolScreen() {
           )}
         </View>
       </View>
+
+      <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <View style={styles.chartWrap}>
         <CandleChart candles={result.candles} channels={result.channels} />

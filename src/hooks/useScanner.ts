@@ -3,6 +3,7 @@ import { fetchCandles } from '../lib/data/fetch';
 import { scanSymbol } from '../lib/scan';
 import type { ScanResult } from '../lib/types';
 import type { SymbolInfo } from '../lib/data/symbols';
+import { DEFAULT_TIMEFRAME, type Timeframe } from '../lib/timeframes';
 
 export interface ScannerState {
   results: Record<string, ScanResult>;
@@ -12,8 +13,8 @@ export interface ScannerState {
 }
 
 const DEFAULT_REFRESH_MS = 20 * 60 * 1000;
-const BATCH_SIZE = 20;
-const BATCH_DELAY_MS = 200;
+const BATCH_SIZE = 30;
+const BATCH_DELAY_MS = 100;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,9 +28,14 @@ function sleep(ms: number) {
  *
  * refreshMs lets callers pick their own cadence — crypto (3 symbols,
  * cheap to refetch) can refresh far more often than a 900-symbol stock
- * scan without hammering anything.
+ * scan without hammering anything. timeframe controls how much history
+ * is fetched per symbol (and re-triggers a scan when changed).
  */
-export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS): ScannerState {
+export function useScanner(
+  symbols: SymbolInfo[],
+  refreshMs: number = DEFAULT_REFRESH_MS,
+  timeframe: Timeframe = DEFAULT_TIMEFRAME
+): ScannerState {
   const [results, setResults] = useState<Record<string, ScanResult>>({});
   const [loading, setLoading] = useState(true);
   const [scanned, setScanned] = useState(0);
@@ -52,7 +58,7 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
         await Promise.all(
           batch.map(async (info) => {
             try {
-              const { candles, isLive } = await fetchCandles(info.symbol);
+              const { candles, isLive } = await fetchCandles(info.symbol, timeframe);
               resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
             } catch {
               // fetchCandles never throws in practice, but keep the scan resilient regardless
@@ -77,7 +83,7 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbolKey, refreshMs]);
+  }, [symbolKey, refreshMs, timeframe.label]);
 
   return { results, loading, scanned, total: symbols.length };
 }

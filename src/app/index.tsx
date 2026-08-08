@@ -33,7 +33,7 @@ function bySignal(results: ScanResult[], signal: ReturnType<typeof getSignal>, c
 }
 
 export default function DashboardScreen() {
-  const { results: cryptoRaw, loading: cryptoLoading } = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
+  const { results: cryptoRaw } = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
   const { results: stockRaw, loading: stockLoading, scanned, total } = useScanner(STOCK_SYMBOLS);
   const [alertStatus, setAlertStatus] = useState<PermissionStatus | 'pending'>('pending');
   const scheduledOnce = useRef(false);
@@ -73,7 +73,10 @@ export default function DashboardScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {initialLoad ? (
         <View style={styles.spinnerWrap}>
-          <Text style={styles.spinnerText}>scanning…</Text>
+          <Text style={styles.spinnerText}>Scanning crypto and the first batch of stocks…</Text>
+          <Text style={styles.spinnerSubtext}>
+            First load checks ~950 tickers, usually a minute or two. Results fill in below as they come in.
+          </Text>
         </View>
       ) : (
         <>
@@ -85,7 +88,8 @@ export default function DashboardScreen() {
             <Text style={styles.subtitle}>Support / resistance breakout monitor · picks under ${PRICE_LIMIT}</Text>
             {stockLoading && (
               <Text style={styles.progressText}>
-                scanning {total.toLocaleString()} tickers… {scanned.toLocaleString()} / {total.toLocaleString()}
+                scanning… {scanned.toLocaleString()} / {total.toLocaleString()} (
+                {Math.round((scanned / total) * 100)}%)
               </Text>
             )}
             <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
@@ -177,9 +181,17 @@ const styles = StyleSheet.create({
   spinnerWrap: {
     padding: 40,
     alignItems: 'center',
+    gap: 8,
   },
   spinnerText: {
     color: colors.textDim,
     fontSize: 12,
+    textAlign: 'center',
+  },
+  spinnerSubtext: {
+    color: colors.textDim,
+    fontSize: 11,
+    textAlign: 'center',
+    opacity: 0.7,
   },
 });

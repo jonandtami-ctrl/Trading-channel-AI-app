@@ -23,7 +23,15 @@ Covered by unit tests in `src/lib/__tests__` (`npm test`).
   - ~50 ETFs weighted toward leveraged/inverse products (SOXL/SOXS, TQQQ/SQQQ, SPXL/SPXS, etc.) since their amplified swings tend to form cleaner channels (`src/lib/data/etfs.ts`)
   - Picks are filtered to **under $120** at scan time to stay capital-friendly for practice trading — this uses the live price, not the static list.
 - Either source falls back to bundled demo data if unreachable (with roughly realistic anchor prices for BTC/ETH/SOL, not the generic placeholder range). A `LIVE`/`DEMO` badge always shows which one you're looking at.
-- ~950 symbols can't all be fetched at once without getting rate-limited, so the scanner (`src/hooks/useScanner.ts`) works through them in batches of 20 with a short pause between batches, updating the dashboard progressively as results come in (a full scan takes roughly 1-2 minutes depending on network). Tap any symbol directly to check it even if it's not in the displayed picks — its detail screen scans it live on its own.
+- ~950 symbols can't all be fetched at once without getting rate-limited, so the scanner (`src/hooks/useScanner.ts`) works through them in batches of 30 with a short pause between batches, updating the dashboard progressively as results come in (a full scan takes roughly a minute or two depending on network). Tap any symbol directly to check it even if it's not in the displayed picks — its detail screen scans it live on its own.
+
+## Timeframes
+
+Each symbol's detail screen has a 1M / 3M / 6M / 1Y / 2Y selector
+(`src/components/TimeframeSelector.tsx`). Switching it refetches that
+symbol at the new lookback window and reruns channel detection against
+it (`src/lib/timeframes.ts`), so the channels shown always match what's
+on screen — it's not just zooming the same dataset.
 
 ## Dashboard sections
 
