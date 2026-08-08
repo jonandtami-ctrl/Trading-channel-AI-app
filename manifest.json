@@ -1,0 +1,12 @@
+{
+  "name": "Channel Scanner",
+  "short_name": "Channel Scanner",
+  "description": "Scans crypto, stocks, and ETFs for support/resistance channels and calls out BUY/SELL/WATCH signals.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0e14",
+  "theme_color": "#0a0e14",
+  "icons": [
+    { "src": "icon.png", "sizes": "1024x1024", "type": "image/png" }
+  ]
+}
