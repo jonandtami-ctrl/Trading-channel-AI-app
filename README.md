@@ -13,7 +13,11 @@ out BUY / SELL / WATCH picks as they form.
 - **Signals** (`getSignal` in `src/lib/scan.ts`) — turns alerts into a trade call: a confirmed breakout or a bounce off support is a **BUY**; a confirmed breakdown or a rejection at resistance is a **SELL**; merely approaching a level (not yet a confirmed reversal) is a **WATCH**, not a firm call.
 - **Strength & risk** (`classifyStrength`/`assessRisk`/`getSignalDetail` in `src/lib/scan.ts`) — how big the move off the level has been so far, tiered High (10%+) / Medium (5%+) / Low (1%+); risk is how much of the channel's total width that move has already used up (70%+ used = high risk of chasing a move that's about to run out of room, under 35% = low risk, room still ahead).
 
-Covered by unit tests in `src/lib/__tests__` (`npm test`).
+Covered by unit tests in `src/lib/__tests__` (`npm test`) — including
+`notificationContent.test.ts`, which simulates repeated auto-refresh
+cycles (same signal seen again → not re-notified; a genuinely new one
+on a later rescan → flagged; date rollover → re-flagged) against the
+pure dedup logic in `src/lib/notificationContent.ts`.
 
 ## Data
 
@@ -68,10 +72,17 @@ Play Store) — no build, no hosting, no app store review.
 ## Notifications
 
 On launch, the app requests notification permission and sets up two kinds
-of alerts (`src/lib/notifications.ts`):
+of alerts (`src/lib/notifications.ts`), both only while the app is open
+and in the foreground — there's no backend, so nothing runs while it's
+closed or backgrounded:
 
 - **Instant buy/sell alerts** — fires right away whenever a scan finds a new BUY or SELL signal that hasn't already been flagged that day (deduped per symbol+signal+day so a 20-minute rescan doesn't repeat itself).
 - **Weekly Sunday 8pm digest** — a recurring local notification listing which stocks are sitting in an active channel. Rescheduled with fresh content every time the app is opened and finishes a scan — local notifications can't recompute their own content at fire time without the app running, so it reflects whatever was true the last time you had the app open that week.
+
+A **"Send test"** button appears next to the alert status line on the
+dashboard once permission is granted — fires an immediate local
+notification with no real signal behind it, so you can confirm delivery
+is actually working on your device without waiting for a real call.
 
 ## Navigation
 

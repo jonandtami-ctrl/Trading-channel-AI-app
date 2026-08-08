@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../../lib/data/symbols';
 import { closestLevelDistance, getSignal } from '../../lib/scan';
@@ -17,6 +17,7 @@ import {
   requestNotificationPermission,
   scheduleWeeklyChannelAlert,
   notifyNewSignals,
+  sendTestNotification,
   type PermissionStatus,
 } from '../../lib/notifications';
 
@@ -180,6 +181,8 @@ function StatTile({
 }
 
 function AlertStatusLine({ status, scheduled }: { status: PermissionStatus | 'pending'; scheduled: boolean }) {
+  const [sent, setSent] = useState(false);
+
   if (status === 'pending') return null;
 
   let text = '';
@@ -191,7 +194,23 @@ function AlertStatusLine({ status, scheduled }: { status: PermissionStatus | 'pe
     text = 'Setting up alerts…';
   }
 
-  return <Text style={styles.alertStatusText}>{text}</Text>;
+  async function handleTestNotification() {
+    await sendTestNotification();
+    setSent(true);
+    setTimeout(() => setSent(false), 3000);
+  }
+
+  return (
+    <View style={styles.alertStatusRow}>
+      <Text style={styles.alertStatusText}>{text}</Text>
+      {status === 'granted' && (
+        <Pressable style={styles.testButton} onPress={handleTestNotification}>
+          <Ionicons name={sent ? 'checkmark' : 'notifications-outline'} size={11} color={colors.accent} />
+          <Text style={styles.testButtonText}>{sent ? 'Sent' : 'Send test'}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -252,11 +271,31 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
   },
+  alertStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
   alertStatusText: {
     color: colors.textDim,
     fontSize: 10,
     fontStyle: 'italic',
-    marginTop: 2,
+    flexShrink: 1,
+  },
+  testButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    backgroundColor: `${colors.accent}1a`,
+  },
+  testButtonText: {
+    color: colors.accent,
+    fontSize: 9,
+    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',

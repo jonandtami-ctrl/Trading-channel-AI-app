@@ -1,7 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { getSignal } from './scan';
 import type { ScanResult } from './types';
+import { buildSignalNotificationBody, buildWeeklyDigestBody, computeNewSignals } from './notificationContent';
 
 const WEEKLY_ALERT_ID = 'weekly-channel-alert';
 const SUNDAY_HOUR = 20; // 8pm local time
@@ -42,14 +42,7 @@ export async function requestNotificationPermission(): Promise<PermissionStatus>
  * refreshes the scheduled content.
  */
 export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Promise<void> {
-  const inChannel = stockResults
-    .filter((r) => r.channels.some((c) => c.status === 'active'))
-    .map((r) => r.symbol);
-
-  const body =
-    inChannel.length > 0
-      ? `${inChannel.slice(0, 8).join(', ')}${inChannel.length > 8 ? ` +${inChannel.length - 8} more` : ''} — bouncing in a channel right now.`
-      : 'No stocks are currently sitting in a clean channel.';
+  const body = buildWeeklyDigestBody(stockResults);
 
   await Notifications.cancelScheduledNotificationAsync(WEEKLY_ALERT_ID).catch(() => {});
 
@@ -77,40 +70,34 @@ export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Pr
  */
 export async function notifyNewSignals(stockResults: ScanResult[], seen: Set<string>): Promise<Set<string>> {
   const today = new Date().toISOString().slice(0, 10);
-  const nextSeen = new Set(seen);
-  const newBuys: string[] = [];
-  const newSells: string[] = [];
-
-  for (const result of stockResults) {
-    const signal = getSignal(result);
-    if (signal !== 'buy' && signal !== 'sell') continue;
-
-    const key = `${result.symbol}-${signal}-${today}`;
-    if (nextSeen.has(key)) continue;
-    nextSeen.add(key);
-
-    if (signal === 'buy') newBuys.push(result.symbol);
-    else newSells.push(result.symbol);
-  }
+  const { nextSeen, newBuys, newSells } = computeNewSignals(stockResults, seen, today);
 
   if (newBuys.length === 0 && newSells.length === 0) return nextSeen;
-
-  const parts: string[] = [];
-  if (newBuys.length > 0) {
-    parts.push(`BUY: ${newBuys.slice(0, 10).join(', ')}${newBuys.length > 10 ? ` +${newBuys.length - 10} more` : ''}`);
-  }
-  if (newSells.length > 0) {
-    parts.push(`SELL: ${newSells.slice(0, 10).join(', ')}${newSells.length > 10 ? ` +${newSells.length - 10} more` : ''}`);
-  }
 
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Channel Scanner — new signal',
-      body: parts.join('   ·   '),
+      body: buildSignalNotificationBody(newBuys, newSells),
       sound: true,
     },
     trigger: null,
   });
 
   return nextSeen;
+}
+
+/**
+ * Fires an immediate local notification with no real signal behind it —
+ * purely so you can confirm delivery is actually working on your device
+ * right now instead of waiting for a real buy/sell to show up.
+ */
+export async function sendTestNotification(): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Channel Scanner — test notification',
+      body: "If you're seeing this, notifications are working correctly.",
+      sound: true,
+    },
+    trigger: null,
+  });
 }
