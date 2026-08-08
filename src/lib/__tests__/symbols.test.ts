@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS, findSymbol } from '../data/symbols';
 
 describe('symbol data', () => {
-  it('has roughly S&P 500 sized stock universe', () => {
-    expect(STOCK_SYMBOLS.length).toBeGreaterThan(490);
-    expect(STOCK_SYMBOLS.length).toBeLessThan(520);
+  it('has a stock universe spanning S&P 500 + extra NASDAQ/NYSE + ETFs', () => {
+    expect(STOCK_SYMBOLS.length).toBeGreaterThan(900);
+    expect(STOCK_SYMBOLS.length).toBeLessThan(1000);
   });
 
   it('has no duplicate symbols across the combined universe', () => {

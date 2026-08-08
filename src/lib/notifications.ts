@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { getSignal } from './scan';
 import type { ScanResult } from './types';
 
 const WEEKLY_ALERT_ID = 'weekly-channel-alert';
@@ -66,4 +67,50 @@ export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Pr
       minute: SUNDAY_MINUTE,
     },
   });
+}
+
+/**
+ * Fires an immediate local notification for any BUY/SELL signal that
+ * wasn't already seen today. `seen` is a per-session dedupe set (symbol +
+ * signal + date) so a 20-minute rescan doesn't re-notify the same call —
+ * pass back the returned set on the next call.
+ */
+export async function notifyNewSignals(stockResults: ScanResult[], seen: Set<string>): Promise<Set<string>> {
+  const today = new Date().toISOString().slice(0, 10);
+  const nextSeen = new Set(seen);
+  const newBuys: string[] = [];
+  const newSells: string[] = [];
+
+  for (const result of stockResults) {
+    const signal = getSignal(result);
+    if (signal !== 'buy' && signal !== 'sell') continue;
+
+    const key = `${result.symbol}-${signal}-${today}`;
+    if (nextSeen.has(key)) continue;
+    nextSeen.add(key);
+
+    if (signal === 'buy') newBuys.push(result.symbol);
+    else newSells.push(result.symbol);
+  }
+
+  if (newBuys.length === 0 && newSells.length === 0) return nextSeen;
+
+  const parts: string[] = [];
+  if (newBuys.length > 0) {
+    parts.push(`BUY: ${newBuys.slice(0, 10).join(', ')}${newBuys.length > 10 ? ` +${newBuys.length - 10} more` : ''}`);
+  }
+  if (newSells.length > 0) {
+    parts.push(`SELL: ${newSells.slice(0, 10).join(', ')}${newSells.length > 10 ? ` +${newSells.length - 10} more` : ''}`);
+  }
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title: 'Channel Scanner — new signal',
+      body: parts.join('   ·   '),
+      sound: true,
+    },
+    trigger: null,
+  });
+
+  return nextSeen;
 }

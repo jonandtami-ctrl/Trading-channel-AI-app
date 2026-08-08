@@ -11,8 +11,8 @@ export interface ScannerState {
   total: number;
 }
 
-const REFRESH_MS = 20 * 60 * 1000;
-const BATCH_SIZE = 15;
+const DEFAULT_REFRESH_MS = 20 * 60 * 1000;
+const BATCH_SIZE = 20;
 const BATCH_DELAY_MS = 200;
 
 function sleep(ms: number) {
@@ -24,8 +24,12 @@ function sleep(ms: number) {
  * hundreds of requests at once — kinder to Yahoo's unofficial endpoint
  * (less likely to get rate-limited) and lets the UI fill in results as
  * they arrive instead of blocking on the whole universe.
+ *
+ * refreshMs lets callers pick their own cadence — crypto (3 symbols,
+ * cheap to refetch) can refresh far more often than a 900-symbol stock
+ * scan without hammering anything.
  */
-export function useScanner(symbols: SymbolInfo[]): ScannerState {
+export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS): ScannerState {
   const [results, setResults] = useState<Record<string, ScanResult>>({});
   const [loading, setLoading] = useState(true);
   const [scanned, setScanned] = useState(0);
@@ -67,13 +71,13 @@ export function useScanner(symbols: SymbolInfo[]): ScannerState {
     }
 
     run();
-    const interval = setInterval(run, REFRESH_MS);
+    const interval = setInterval(run, refreshMs);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbolKey]);
+  }, [symbolKey, refreshMs]);
 
   return { results, loading, scanned, total: symbols.length };
 }

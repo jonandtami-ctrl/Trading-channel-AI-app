@@ -4,10 +4,19 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { formatPrice } from '../../lib/format';
+import { getSignal } from '../../lib/scan';
 import { LiveBadge } from '../../components/LiveBadge';
 import { CandleChart } from '../../components/CandleChart';
 import { AlertsFeed } from '../../components/AlertsFeed';
-import { colors } from '../../constants/theme';
+import { SectionHeader } from '../../components/SectionHeader';
+import { colors, radius, spacing } from '../../constants/theme';
+
+const SIGNAL_META: Record<string, { label: string; color: string }> = {
+  buy: { label: 'BUY', color: colors.green },
+  sell: { label: 'SELL', color: colors.red },
+  watch_support: { label: 'WATCH · SUPPORT', color: colors.amber },
+  watch_resistance: { label: 'WATCH · RESISTANCE', color: colors.amber },
+};
 
 export default function SymbolScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
@@ -37,6 +46,8 @@ export default function SymbolScreen() {
   }
 
   const last = result.candles[result.candles.length - 1];
+  const signal = getSignal(result);
+  const signalMeta = signal ? SIGNAL_META[signal] : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -44,10 +55,18 @@ export default function SymbolScreen() {
         <View style={styles.metaRow}>
           <Text style={styles.metaText}>
             {result.symbol} · {info?.name}
+            {info?.exchange ? ` · ${info.exchange}` : ''}
           </Text>
           <LiveBadge isLive={result.isLive} />
         </View>
-        <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+          {signalMeta && (
+            <View style={[styles.signalPill, { backgroundColor: `${signalMeta.color}26` }]}>
+              <Text style={[styles.signalText, { color: signalMeta.color }]}>{signalMeta.label}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       <View style={styles.chartWrap}>
@@ -89,7 +108,7 @@ export default function SymbolScreen() {
         </View>
       )}
 
-      <Text style={styles.sectionTitle}>Alerts</Text>
+      <SectionHeader title="Alerts" color={colors.blue} />
       <AlertsFeed alerts={result.alerts} />
     </ScrollView>
   );
@@ -104,37 +123,54 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
-    gap: 4,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    gap: 6,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
   metaText: {
     color: colors.textDim,
     fontSize: 12,
+    flexShrink: 1,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   price: {
     color: colors.text,
     fontSize: 28,
     fontWeight: '700',
   },
+  signalPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  signalText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
   chartWrap: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   card: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 12,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.bgPanel,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgCard,
   },
   cardRow: {
     flexDirection: 'row',
@@ -149,15 +185,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 12,
     fontWeight: '600',
-  },
-  sectionTitle: {
-    color: colors.textDim,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginTop: 20,
-    marginBottom: 8,
-    paddingHorizontal: 16,
   },
   spinnerWrap: {
     padding: 40,

@@ -1,17 +1,23 @@
-"""Generates simple PNG app icons (no external deps) for the PWA manifest
-and iOS home-screen icon: a dark panel with two horizontal support/resistance
-lines and a zigzag price path bouncing between them.
+"""Generates simple PNG app icons (no external deps): a dark gradient
+panel with two horizontal support/resistance lines and a zigzag price
+path bouncing between them, plus a rounded-rect background band so it
+reads as a real app icon rather than a flat sketch.
 """
 import struct
 import zlib
 import os
 
-BG = (10, 14, 20)
+BG_TOP = (12, 17, 26)
+BG_BOTTOM = (8, 11, 17)
+PANEL = (19, 26, 38)
 LINE = (88, 166, 255)
 PRICE = (63, 185, 80)
 
+def lerp(a, b, t):
+    return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
 def make_icon(size, margin_scale=1.0):
-    px = [[BG for _ in range(size)] for _ in range(size)]
+    px = [[lerp(BG_TOP, BG_BOTTOM, y / (size - 1)) for _ in range(size)] for y in range(size)]
 
     def set_px(x, y, color, w=1):
         for dx in range(-(w // 2), w - w // 2):
@@ -28,10 +34,20 @@ def make_icon(size, margin_scale=1.0):
             y = round(y0 + (y1 - y0) * t)
             set_px(x, y, color, w)
 
-    margin = size * 0.18 * margin_scale
-    top = size * 0.5 - (size * 0.18)
-    bottom = size * 0.5 + (size * 0.18)
-    lw = max(2, round(size * 0.018))
+    def fill_rect(x0, y0, x1, y1, color):
+        for y in range(round(y0), round(y1)):
+            for x in range(round(x0), round(x1)):
+                if 0 <= x < size and 0 <= y < size:
+                    px[y][x] = color
+
+    # rounded-feeling inner panel (corners left square; masked round by the OS anyway)
+    panel_margin = size * 0.08
+    fill_rect(panel_margin, panel_margin, size - panel_margin, size - panel_margin, PANEL)
+
+    margin = size * 0.22 * margin_scale
+    top = size * 0.5 - (size * 0.16)
+    bottom = size * 0.5 + (size * 0.16)
+    lw = max(2, round(size * 0.016))
 
     # support / resistance lines
     line(margin, top, size - margin, top, LINE, lw)
@@ -42,7 +58,7 @@ def make_icon(size, margin_scale=1.0):
               margin + (size - 2 * margin) * 0.54, margin + (size - 2 * margin) * 0.72,
               margin + (size - 2 * margin) * 0.9]
     pts_y = [size * 0.5, top + lw * 2, bottom - lw * 2, top + lw * 2, bottom - lw * 2, size * 0.42]
-    pw = max(3, round(size * 0.028))
+    pw = max(3, round(size * 0.026))
     for i in range(len(pts_x) - 1):
         line(pts_x[i], pts_y[i], pts_x[i + 1], pts_y[i + 1], PRICE, pw)
 

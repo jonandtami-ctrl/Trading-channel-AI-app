@@ -21,6 +21,17 @@ function hashSeed(symbol: string): number {
 }
 
 /**
+ * Roughly realistic anchor prices for well-known assets, so demo-fallback
+ * data (shown only when the live fetch fails) doesn't read as obviously
+ * broken — e.g. BTC showing "$140" instead of a five-figure price.
+ */
+const KNOWN_BASE_PRICES: Record<string, number> = {
+  BTC: 95000,
+  ETH: 3200,
+  SOL: 180,
+};
+
+/**
  * Generates synthetic daily OHLC data that trends in, consolidates into a
  * clean support/resistance channel for a stretch, then resumes trending —
  * so the demo badge always shows something representative of what the
@@ -28,7 +39,8 @@ function hashSeed(symbol: string): number {
  */
 export function generateDemoCandles(symbol: string, days = 220): Candle[] {
   const rand = mulberry32(hashSeed(symbol));
-  const basePrice = 20 + rand() * 400;
+  const known = KNOWN_BASE_PRICES[symbol.toUpperCase()];
+  const basePrice = known != null ? known * (0.9 + rand() * 0.2) : 20 + rand() * 400;
   const now = Math.floor(Date.now() / 1000);
   const dayMs = 24 * 60 * 60;
   const startTime = now - days * dayMs;

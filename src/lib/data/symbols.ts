@@ -1,10 +1,15 @@
 import { SP500_SYMBOLS } from './sp500';
+import { EXTRA_SYMBOLS } from './extra_symbols';
+import { ETF_SYMBOLS } from './etfs';
+
+export type Exchange = 'S&P 500' | 'NASDAQ' | 'NYSE' | 'ETF';
 
 export interface SymbolInfo {
   symbol: string; // display symbol, e.g. BTC or AAPL
   name: string;
   kind: 'crypto' | 'stock';
   binancePair?: string; // e.g. BTCUSDT
+  exchange?: Exchange;
 }
 
 export const CRYPTO_SYMBOLS: SymbolInfo[] = [
@@ -13,7 +18,9 @@ export const CRYPTO_SYMBOLS: SymbolInfo[] = [
   { symbol: 'SOL', name: 'Solana', kind: 'crypto', binancePair: 'SOLUSDT' },
 ];
 
-export const STOCK_SYMBOLS: SymbolInfo[] = SP500_SYMBOLS;
+const SP500_TAGGED: SymbolInfo[] = SP500_SYMBOLS.map((s) => ({ ...s, exchange: 'S&P 500' as const }));
+
+export const STOCK_SYMBOLS: SymbolInfo[] = [...SP500_TAGGED, ...EXTRA_SYMBOLS, ...ETF_SYMBOLS];
 
 export const ALL_SYMBOLS: SymbolInfo[] = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS];
 

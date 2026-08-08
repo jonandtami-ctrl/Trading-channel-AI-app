@@ -30,3 +30,26 @@ export function urgencyScore(result: ScanResult): number {
 
   return 4;
 }
+
+export type Signal = 'buy' | 'sell' | 'watch_support' | 'watch_resistance' | null;
+
+/**
+ * Turns a result's alerts into a single trade call: a confirmed breakout
+ * or a bounce off support is a BUY; a confirmed breakdown or a bounce off
+ * (rejection at) resistance is a SELL. Merely approaching a level isn't a
+ * confirmed reversal yet, so it's a WATCH, not a firm call.
+ */
+export function getSignal(result: ScanResult): Signal {
+  if (result.alerts.some((a) => a.type === 'breakout' || a.type === 'bounce_support')) return 'buy';
+  if (result.alerts.some((a) => a.type === 'breakdown' || a.type === 'bounce_resistance')) return 'sell';
+  if (result.alerts.some((a) => a.type === 'approaching_support')) return 'watch_support';
+  if (result.alerts.some((a) => a.type === 'approaching_resistance')) return 'watch_resistance';
+  return null;
+}
+
+/** Smallest current distance (as a fraction of price) from the last close to any alert's level. */
+export function closestLevelDistance(result: ScanResult): number {
+  const last = result.candles[result.candles.length - 1];
+  if (!last || result.alerts.length === 0) return Infinity;
+  return Math.min(...result.alerts.map((a) => Math.abs(last.close - a.levelPrice) / last.close));
+}
