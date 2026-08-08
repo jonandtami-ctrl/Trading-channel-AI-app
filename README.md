@@ -16,11 +16,20 @@ Covered by unit tests in `src/lib/__tests__` (`npm test`).
 ## Data
 
 - **Crypto** (BTC, ETH, SOL) — live from Binance's public klines API.
-- **Stocks** (15 symbols) — live from Yahoo Finance. Native apps aren't
-  subject to browser CORS restrictions, so this calls Yahoo directly, no
-  proxy needed.
+- **Stocks** — the full S&P 500 (503 tickers, `src/lib/data/sp500.ts`,
+  snapshotted from a maintained public dataset), live from Yahoo Finance.
+  Native apps aren't subject to browser CORS restrictions, so this calls
+  Yahoo directly, no proxy needed.
 - Either source falls back to bundled demo data if unreachable. A
   `LIVE`/`DEMO` badge always shows which one you're looking at.
+- 503 symbols can't all be fetched at once without getting rate-limited,
+  so the scanner (`src/hooks/useScanner.ts`) works through them in
+  batches of 15 with a short pause between batches, updating the
+  dashboard progressively as results come in (~30-60s for a full scan
+  depending on network). Rescans every 20 minutes. The dashboard shows
+  the top 25 stocks by urgency (breakouts first), not all 503 — tap
+  any symbol you don't see listed to check it directly, it's still
+  being scanned in the background.
 
 ## Running in Expo Go
 

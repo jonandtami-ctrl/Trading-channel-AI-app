@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../hooks/useScanner';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../lib/data/symbols';
+import { urgencyScore } from '../lib/scan';
 import { Watchlist } from '../components/Watchlist';
 import { AlertsFeed } from '../components/AlertsFeed';
 import { LiveBadge } from '../components/LiveBadge';
@@ -12,16 +13,21 @@ import {
   type PermissionStatus,
 } from '../lib/notifications';
 
+const TOP_N = 25;
+
 export default function DashboardScreen() {
-  const { results, loading } = useScanner(ALL_SYMBOLS);
+  const { results, loading, scanned, total } = useScanner(ALL_SYMBOLS);
   const [alertStatus, setAlertStatus] = useState<PermissionStatus | 'pending'>('pending');
   const scheduledOnce = useRef(false);
   const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
   const cryptoResults = CRYPTO_SYMBOLS.map((s) => results[s.symbol]).filter(Boolean);
-  const stockResults = STOCK_SYMBOLS.map((s) => results[s.symbol]).filter(Boolean);
-  const allResults = [...cryptoResults, ...stockResults];
-  const allAlerts = allResults.flatMap((r) => r.alerts);
+  const allStockResults = STOCK_SYMBOLS.map((s) => results[s.symbol]).filter(Boolean);
+  const topStockResults = [...allStockResults]
+    .sort((a, b) => urgencyScore(a) - urgencyScore(b))
+    .slice(0, TOP_N);
+  const allResults = [...cryptoResults, ...allStockResults];
+  const allAlerts = [...cryptoResults, ...topStockResults].flatMap((r) => r.alerts);
   const anyLive = allResults.some((r) => r.isLive);
 
   useEffect(() => {
@@ -29,15 +35,15 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => {
-    if (loading || stockResults.length === 0 || alertStatus !== 'granted') return;
-    scheduleWeeklyChannelAlert(stockResults);
+    if (loading || allStockResults.length === 0 || alertStatus !== 'granted') return;
+    scheduleWeeklyChannelAlert(allStockResults);
     scheduledOnce.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, alertStatus, stockResults.length]);
+  }, [loading, alertStatus, allStockResults.length]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {loading && allResults.length === 0 ? (
+      {allResults.length === 0 ? (
         <View style={styles.spinnerWrap}>
           <Text style={styles.spinnerText}>scanning…</Text>
         </View>
@@ -45,16 +51,26 @@ export default function DashboardScreen() {
         <>
           <View style={styles.subHeader}>
             <Text style={styles.subtitle}>support / resistance breakout monitor</Text>
-            {allResults.length > 0 && <LiveBadge isLive={anyLive} />}
+            <LiveBadge isLive={anyLive} />
           </View>
+
+          {loading && (
+            <View style={styles.progressWrap}>
+              <Text style={styles.progressText}>
+                scanning S&amp;P 500… {scanned} / {total}
+              </Text>
+            </View>
+          )}
 
           <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
 
           <Text style={styles.sectionTitle}>Crypto</Text>
           <Watchlist results={cryptoResults} names={names} />
 
-          <Text style={styles.sectionTitle}>Stocks (top 15, by urgency)</Text>
-          <Watchlist results={stockResults} names={names} />
+          <Text style={styles.sectionTitle}>
+            Stocks — top {topStockResults.length} of {allStockResults.length} scanned, by urgency
+          </Text>
+          <Watchlist results={topStockResults} names={names} />
 
           <Text style={styles.sectionTitle}>Alerts</Text>
           <AlertsFeed alerts={allAlerts} />
@@ -100,6 +116,14 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     color: colors.textDim,
+    fontSize: 11,
+  },
+  progressWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  progressText: {
+    color: colors.blue,
     fontSize: 11,
   },
   alertStatus: {

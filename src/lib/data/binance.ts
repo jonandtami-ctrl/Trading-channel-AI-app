@@ -1,9 +1,10 @@
 import type { Candle } from '../types';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
-/** Binance's public klines endpoint allows cross-origin browser requests, so crypto can go live client-side. */
+/** Binance's public klines endpoint allows cross-origin requests, so crypto can go live directly. */
 export async function fetchBinanceCandles(pair: string, limit = 220): Promise<Candle[]> {
   const url = `https://api.binance.com/api/v3/klines?symbol=${pair}&interval=1d&limit=${limit}`;
-  const res = await fetch(url, { cache: 'no-store' });
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Binance request failed: ${res.status}`);
 
   const raw = (await res.json()) as unknown[][];

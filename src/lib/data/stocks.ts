@@ -1,4 +1,5 @@
 import type { Candle } from '../types';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 /**
  * Native apps aren't subject to browser CORS restrictions, so we can call
@@ -6,7 +7,7 @@ import type { Candle } from '../types';
  */
 export async function fetchStockCandles(symbol: string): Promise<Candle[]> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=1y&interval=1d`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
   if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
 
   const json = await res.json();
