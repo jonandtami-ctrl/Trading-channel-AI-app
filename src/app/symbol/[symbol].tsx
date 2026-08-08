@@ -1,16 +1,21 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
+import { backtestChannel } from '../../lib/backtest';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
+import { loadPinnedSymbols, togglePin } from '../../lib/pins';
+import { unrealizedPnl, type Trade } from '../../lib/journal';
+import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
 import { LiveBadge } from '../../components/LiveBadge';
 import { CandleChart } from '../../components/CandleChart';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
+import { TradeModal } from '../../components/TradeModal';
 import { colors, radius, spacing } from '../../constants/theme';
 
 const DETAIL_REFRESH_MS = 60 * 1000;
@@ -30,9 +35,19 @@ export default function SymbolScreen() {
   const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS, timeframe);
   const result = symbol ? results[symbol] : undefined;
 
+  const [pinned, setPinned] = useState(false);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [modalMode, setModalMode] = useState<'log' | 'close' | null>(null);
+
   useEffect(() => {
     navigation.setOptions({ title: symbol ?? '' });
   }, [navigation, symbol]);
+
+  useEffect(() => {
+    if (!symbol) return;
+    loadPinnedSymbols().then((pins) => setPinned(pins.includes(symbol)));
+    loadTrades().then(setTrades);
+  }, [symbol]);
 
   if (loading && !result) {
     return (
@@ -42,7 +57,7 @@ export default function SymbolScreen() {
     );
   }
 
-  if (!result) {
+  if (!result || !symbol) {
     return (
       <View style={styles.spinnerWrap}>
         <Text style={styles.spinnerText}>Symbol not found.</Text>
@@ -53,6 +68,21 @@ export default function SymbolScreen() {
   const last = result.candles[result.candles.length - 1];
   const signal = getSignal(result);
   const signalMeta = signal ? SIGNAL_META[signal] : null;
+  const openTrade = trades.find((t) => t.symbol === symbol && t.status === 'open');
+
+  async function handlePin() {
+    const next = await togglePin(symbol!);
+    setPinned(next.includes(symbol!));
+  }
+
+  async function handleSubmit(price: number, quantity: number) {
+    if (modalMode === 'log') {
+      setTrades(await logTrade(symbol!, price, quantity));
+    } else if (modalMode === 'close' && openTrade) {
+      setTrades(await closeTrade(openTrade.id, price));
+    }
+    setModalMode(null);
+  }
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -72,6 +102,29 @@ export default function SymbolScreen() {
             </View>
           )}
         </View>
+
+        <View style={styles.actionRow}>
+          <Pressable style={[styles.actionButton, pinned && styles.actionButtonActive]} onPress={handlePin}>
+            <Text style={[styles.actionText, pinned && styles.actionTextActive]}>{pinned ? '📌 Pinned' : '📍 Pin'}</Text>
+          </Pressable>
+          {openTrade ? (
+            <Pressable style={[styles.actionButton, styles.actionButtonRed]} onPress={() => setModalMode('close')}>
+              <Text style={[styles.actionText, styles.actionTextRed]}>Close Trade</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={[styles.actionButton, styles.actionButtonGreen]} onPress={() => setModalMode('log')}>
+              <Text style={[styles.actionText, styles.actionTextGreen]}>Log Trade</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {openTrade && last && (
+          <Text style={styles.openTradeText}>
+            Open: {openTrade.quantity} @ {formatPrice(openTrade.entryPrice)} · unrealized{' '}
+            {unrealizedPnl(openTrade, last.close) >= 0 ? '+' : ''}
+            {formatPrice(unrealizedPnl(openTrade, last.close))}
+          </Text>
+        )}
       </View>
 
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
@@ -81,34 +134,70 @@ export default function SymbolScreen() {
       </View>
 
       {result.channels.length > 0 ? (
-        result.channels.map((channel, i) => (
-          <View key={i} style={styles.card}>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Status</Text>
-              <Text style={styles.cardValue}>
-                {channel.status === 'broken'
-                  ? `Broken ${channel.brokenDirection === 'up' ? 'up' : 'down'}`
-                  : 'Active channel'}
-              </Text>
+        result.channels.map((channel, i) => {
+          const backtest = backtestChannel(channel);
+          return (
+            <View key={i}>
+              <View style={styles.card}>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>Status</Text>
+                  <Text style={styles.cardValue}>
+                    {channel.status === 'broken'
+                      ? `Broken ${channel.brokenDirection === 'up' ? 'up' : 'down'}`
+                      : 'Active channel'}
+                  </Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>Resistance</Text>
+                  <Text style={styles.cardValue}>{formatPrice(channel.resistance.price)}</Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>Support</Text>
+                  <Text style={styles.cardValue}>{formatPrice(channel.support.price)}</Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>Width</Text>
+                  <Text style={styles.cardValue}>{channel.widthPct.toFixed(1)}%</Text>
+                </View>
+                <View style={styles.cardRow}>
+                  <Text style={styles.cardLabel}>Containment</Text>
+                  <Text style={styles.cardValue}>{channel.containmentPct.toFixed(0)}%</Text>
+                </View>
+              </View>
+
+              {backtest.trades.length > 0 && (
+                <View style={styles.backtestCard}>
+                  <Text style={styles.backtestTitle}>Test mode — hypothetical, not real trades</Text>
+                  <Text style={styles.backtestSubtitle}>
+                    If you&apos;d bought every support touch and sold every resistance touch on this channel:
+                  </Text>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>Simulated trades</Text>
+                    <Text style={styles.cardValue}>{backtest.trades.length}</Text>
+                  </View>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>Wins / Losses</Text>
+                    <Text style={styles.cardValue}>
+                      {backtest.winCount} / {backtest.lossCount}
+                    </Text>
+                  </View>
+                  <View style={styles.cardRow}>
+                    <Text style={styles.cardLabel}>Total simulated return</Text>
+                    <Text
+                      style={[
+                        styles.cardValue,
+                        { color: backtest.totalReturnPct >= 0 ? colors.green : colors.red },
+                      ]}
+                    >
+                      {backtest.totalReturnPct >= 0 ? '+' : ''}
+                      {backtest.totalReturnPct.toFixed(1)}%
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Resistance</Text>
-              <Text style={styles.cardValue}>{formatPrice(channel.resistance.price)}</Text>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Support</Text>
-              <Text style={styles.cardValue}>{formatPrice(channel.support.price)}</Text>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Width</Text>
-              <Text style={styles.cardValue}>{channel.widthPct.toFixed(1)}%</Text>
-            </View>
-            <View style={styles.cardRow}>
-              <Text style={styles.cardLabel}>Containment</Text>
-              <Text style={styles.cardValue}>{channel.containmentPct.toFixed(0)}%</Text>
-            </View>
-          </View>
-        ))
+          );
+        })
       ) : (
         <View style={styles.spinnerWrap}>
           <Text style={styles.spinnerText}>No active channel — price isn&apos;t currently consolidating.</Text>
@@ -117,6 +206,15 @@ export default function SymbolScreen() {
 
       <SectionHeader title="Alerts" color={colors.blue} />
       <AlertsFeed alerts={result.alerts} />
+
+      <TradeModal
+        visible={modalMode !== null}
+        mode={modalMode ?? 'log'}
+        symbol={symbol}
+        defaultPrice={last ? Number(last.close.toFixed(4)) : 0}
+        onCancel={() => setModalMode(null)}
+        onSubmit={handleSubmit}
+      />
     </ScrollView>
   );
 }
@@ -166,6 +264,50 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.3,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  actionButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionButtonActive: {
+    backgroundColor: `${colors.accent}26`,
+    borderColor: colors.accent,
+  },
+  actionButtonGreen: {
+    backgroundColor: `${colors.green}26`,
+    borderColor: colors.green,
+  },
+  actionButtonRed: {
+    backgroundColor: `${colors.red}26`,
+    borderColor: colors.red,
+  },
+  actionText: {
+    color: colors.textDim,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  actionTextActive: {
+    color: colors.accent,
+  },
+  actionTextGreen: {
+    color: colors.green,
+  },
+  actionTextRed: {
+    color: colors.red,
+  },
+  openTradeText: {
+    color: colors.textDim,
+    fontSize: 11,
+    marginTop: 4,
+  },
   chartWrap: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
@@ -178,6 +320,28 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.bgCard,
+  },
+  backtestCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.purple,
+    borderRadius: radius.md,
+    backgroundColor: `${colors.purple}14`,
+  },
+  backtestTitle: {
+    color: colors.purple,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  backtestSubtitle: {
+    color: colors.textDim,
+    fontSize: 11,
+    marginTop: 2,
+    marginBottom: spacing.sm,
   },
   cardRow: {
     flexDirection: 'row',

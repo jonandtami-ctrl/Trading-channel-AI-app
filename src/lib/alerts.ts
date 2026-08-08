@@ -13,12 +13,28 @@ export function generateAlerts(symbol: string, candles: Candle[], channels: Chan
 
     if (channel.status === 'broken') {
       if (channel.brokenDirection === 'up') {
+        const strengthPct = ((last.close - resistance.price) / resistance.price) * 100;
         alerts.push(
-          makeAlert(symbol, 'breakout', last, resistance.price, `broke above resistance at ${fmt(resistance.price)}`)
+          makeAlert(
+            symbol,
+            'breakout',
+            last,
+            resistance.price,
+            `broke above resistance at ${fmt(resistance.price)}`,
+            strengthPct
+          )
         );
       } else if (channel.brokenDirection === 'down') {
+        const strengthPct = ((support.price - last.close) / support.price) * 100;
         alerts.push(
-          makeAlert(symbol, 'breakdown', last, support.price, `broke below support at ${fmt(support.price)}`)
+          makeAlert(
+            symbol,
+            'breakdown',
+            last,
+            support.price,
+            `broke below support at ${fmt(support.price)}`,
+            strengthPct
+          )
         );
       }
       continue;
@@ -46,11 +62,29 @@ export function generateAlerts(symbol: string, candles: Candle[], channels: Chan
     }
 
     const bounce = detectBounce(candles, support.price, resistance.price);
-    if (bounce === 'support') {
-      alerts.push(makeAlert(symbol, 'bounce_support', last, support.price, `bounced off support at ${fmt(support.price)}`));
-    } else if (bounce === 'resistance') {
+    if (bounce?.type === 'support') {
+      const strengthPct = ((last.close - bounce.touchedPrice) / bounce.touchedPrice) * 100;
       alerts.push(
-        makeAlert(symbol, 'bounce_resistance', last, resistance.price, `bounced off resistance at ${fmt(resistance.price)}`)
+        makeAlert(
+          symbol,
+          'bounce_support',
+          last,
+          support.price,
+          `bounced off support at ${fmt(support.price)} (+${strengthPct.toFixed(1)}%)`,
+          strengthPct
+        )
+      );
+    } else if (bounce?.type === 'resistance') {
+      const strengthPct = ((bounce.touchedPrice - last.close) / bounce.touchedPrice) * 100;
+      alerts.push(
+        makeAlert(
+          symbol,
+          'bounce_resistance',
+          last,
+          resistance.price,
+          `bounced off resistance at ${fmt(resistance.price)} (-${strengthPct.toFixed(1)}%)`,
+          strengthPct
+        )
       );
     }
   }
@@ -58,21 +92,38 @@ export function generateAlerts(symbol: string, candles: Candle[], channels: Chan
   return alerts;
 }
 
-function detectBounce(candles: Candle[], supportPrice: number, resistancePrice: number): 'support' | 'resistance' | null {
+interface Bounce {
+  type: 'support' | 'resistance';
+  /** The actual extreme (low for a support touch, high for a resistance touch) reached during the lookback window. */
+  touchedPrice: number;
+}
+
+function detectBounce(candles: Candle[], supportPrice: number, resistancePrice: number): Bounce | null {
   if (candles.length < BOUNCE_LOOKBACK + 1) return null;
   const recent = candles.slice(-(BOUNCE_LOOKBACK + 1));
-  const touchedSupport = recent.some((c) => c.low <= supportPrice * 1.005);
-  const touchedResistance = recent.some((c) => c.high >= resistancePrice * 0.995);
+  const supportTouches = recent.filter((c) => c.low <= supportPrice * 1.005);
+  const resistanceTouches = recent.filter((c) => c.high >= resistancePrice * 0.995);
   const last = recent[recent.length - 1];
   const first = recent[0];
 
-  if (touchedSupport && last.close > first.close) return 'support';
-  if (touchedResistance && last.close < first.close) return 'resistance';
+  if (supportTouches.length > 0 && last.close > first.close) {
+    return { type: 'support', touchedPrice: Math.min(...supportTouches.map((c) => c.low)) };
+  }
+  if (resistanceTouches.length > 0 && last.close < first.close) {
+    return { type: 'resistance', touchedPrice: Math.max(...resistanceTouches.map((c) => c.high)) };
+  }
   return null;
 }
 
-function makeAlert(symbol: string, type: Alert['type'], candle: Candle, levelPrice: number, message: string): Alert {
-  return { symbol, type, price: candle.close, levelPrice, time: candle.time, message };
+function makeAlert(
+  symbol: string,
+  type: Alert['type'],
+  candle: Candle,
+  levelPrice: number,
+  message: string,
+  strengthPct?: number
+): Alert {
+  return { symbol, type, price: candle.close, levelPrice, time: candle.time, message, strengthPct };
 }
 
 function fmt(n: number): string {

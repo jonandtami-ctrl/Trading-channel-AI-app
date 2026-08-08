@@ -1,32 +1,35 @@
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ScanResult } from '../lib/types';
-import { getSignal } from '../lib/scan';
+import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
 import { colors, radius, spacing } from '../constants/theme';
 
+const RISK_COLOR = { low: colors.green, medium: colors.amber, high: colors.red } as const;
+const STRENGTH_LABEL = { high: 'High', medium: 'Med', low: 'Low' } as const;
+
 function signalPill(result: ScanResult): { label: string; color: string; bg: string } {
-  const signal = getSignal(result);
+  const detail = getSignalDetail(result);
   const has = (t: string) => result.alerts.some((a) => a.type === t);
 
-  if (signal === 'buy') {
+  if (detail.signal === 'buy') {
     return {
       label: has('breakout') ? 'BUY · Breakout' : 'BUY · Bounce',
       color: colors.green,
       bg: `${colors.green}26`,
     };
   }
-  if (signal === 'sell') {
+  if (detail.signal === 'sell') {
     return {
       label: has('breakdown') ? 'SELL · Breakdown' : 'SELL · Rejected',
       color: colors.red,
       bg: `${colors.red}26`,
     };
   }
-  if (signal === 'watch_support') {
+  if (detail.signal === 'watch_support') {
     return { label: 'WATCH · Support', color: colors.amber, bg: `${colors.amber}26` };
   }
-  if (signal === 'watch_resistance') {
+  if (detail.signal === 'watch_resistance') {
     return { label: 'WATCH · Resistance', color: colors.amber, bg: `${colors.amber}26` };
   }
 
@@ -50,6 +53,7 @@ export function Watchlist({ results, names }: { results: ScanResult[]; names: Re
       {results.map((result) => {
         const last = result.candles[result.candles.length - 1];
         const pill = signalPill(result);
+        const detail = getSignalDetail(result);
         return (
           <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
             <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
@@ -64,6 +68,14 @@ export function Watchlist({ results, names }: { results: ScanResult[]; names: Re
                 <View style={[styles.pill, { backgroundColor: pill.bg }]}>
                   <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
                 </View>
+                {detail.strengthTier && (
+                  <Text style={styles.detailText}>
+                    {detail.strengthPct?.toFixed(1)}% move · {STRENGTH_LABEL[detail.strengthTier]} strength
+                    {detail.risk && (
+                      <Text style={{ color: RISK_COLOR[detail.risk] }}> · {detail.risk} risk</Text>
+                    )}
+                  </Text>
+                )}
               </View>
             </Pressable>
           </Link>
@@ -124,6 +136,10 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+  detailText: {
+    color: colors.textDim,
+    fontSize: 9,
   },
   empty: {
     padding: 24,

@@ -11,6 +11,7 @@ out BUY / SELL / WATCH picks as they form.
 - **Channels** — a support + resistance pair becomes a channel only if both sides have 2+ touches, price stayed contained between them 80%+ of the time, the band is 1–15% wide, and at least one touch is recent; it flips to `broken` once price closes decisively past either level (`src/lib/channels.ts`)
 - **Alerts** — approaching a level, bouncing off one, or breaking out/down (`src/lib/alerts.ts`)
 - **Signals** (`getSignal` in `src/lib/scan.ts`) — turns alerts into a trade call: a confirmed breakout or a bounce off support is a **BUY**; a confirmed breakdown or a rejection at resistance is a **SELL**; merely approaching a level (not yet a confirmed reversal) is a **WATCH**, not a firm call.
+- **Strength & risk** (`classifyStrength`/`assessRisk`/`getSignalDetail` in `src/lib/scan.ts`) — how big the move off the level has been so far, tiered High (10%+) / Medium (5%+) / Low (1%+); risk is how much of the channel's total width that move has already used up (70%+ used = high risk of chasing a move that's about to run out of room, under 35% = low risk, room still ahead).
 
 Covered by unit tests in `src/lib/__tests__` (`npm test`).
 
@@ -41,6 +42,13 @@ Picks are capped at 30 total, split into:
 - **Sell Signals** (up to 10) — breakdowns and resistance rejections
 - **Watching — Near Support** (up to 5) — approaching support, not confirmed yet
 - **Watching — Near Resistance** (up to 5) — approaching resistance, not confirmed yet
+
+## Pinning & the trade journal
+
+- **Pin** (📍 button on any symbol's detail screen, `src/lib/pins.ts`) keeps that symbol permanently visible in a "Pinned & Open Positions" section at the top of the dashboard, regardless of whether it still qualifies for a Buy/Sell/Watch section that day — the daily rescan keeps finding new channels across the whole universe, but anything you've pinned won't get pushed out of view.
+- **Log Trade** / **Close Trade** (same screen) records a real trade — entry price, quantity, and an auto-stamped date — to a persistent journal (`src/lib/journal.ts` for the pure P&L/grouping logic, `src/lib/journalStorage.ts` for the on-device storage via `@react-native-async-storage/async-storage`). Logging a trade also pins that symbol automatically, same reasoning as above.
+- **Journal screen** (`src/app/journal.tsx`, reachable from the dashboard header) lists every trade grouped by year — 2026, 2027, and onward accumulate as separate sections, each with its own realized-gain/loss total — and has an **Export / Share CSV** button (per year or all-time) that opens the native share sheet so you can save it, email it, or print it for tax records.
+- **Test mode** — each symbol's channel shows a "Test mode" card (`src/lib/backtest.ts`) simulating what would have happened buying every historical touch of support and selling every touch of resistance on that specific channel: number of simulated trades, win/loss count, total simulated return. Clearly labeled as hypothetical — no fees or slippage modeled, not a promise about what happens next — it's there to gauge how clean the channel has actually traded, not as an auto-trader.
 
 ## Running in Expo Go
 

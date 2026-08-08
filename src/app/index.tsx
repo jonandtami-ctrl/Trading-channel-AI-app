@@ -1,9 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect, Link } from 'expo-router';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../hooks/useScanner';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../lib/data/symbols';
 import { closestLevelDistance, getSignal } from '../lib/scan';
 import type { ScanResult } from '../lib/types';
+import { loadPinnedSymbols } from '../lib/pins';
+import { loadTrades } from '../lib/journalStorage';
 import { Watchlist } from '../components/Watchlist';
 import { AlertsFeed } from '../components/AlertsFeed';
 import { LiveBadge } from '../components/LiveBadge';
@@ -36,13 +39,25 @@ export default function DashboardScreen() {
   const { results: cryptoRaw } = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
   const { results: stockRaw, loading: stockLoading, scanned, total } = useScanner(STOCK_SYMBOLS);
   const [alertStatus, setAlertStatus] = useState<PermissionStatus | 'pending'>('pending');
+  const [keepSymbols, setKeepSymbols] = useState<string[]>([]);
   const scheduledOnce = useRef(false);
   const seenSignals = useRef<Set<string>>(new Set());
   const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([loadPinnedSymbols(), loadTrades()]).then(([pinned, trades]) => {
+        const openSymbols = trades.filter((t) => t.status === 'open').map((t) => t.symbol);
+        setKeepSymbols(Array.from(new Set([...pinned, ...openSymbols])));
+      });
+    }, [])
+  );
+
   const cryptoResults = CRYPTO_SYMBOLS.map((s) => cryptoRaw[s.symbol]).filter(Boolean);
   const allStockResults = STOCK_SYMBOLS.map((s) => stockRaw[s.symbol]).filter(Boolean);
   const tradeable = allStockResults.filter(underLimit);
+  const allResultsBysymbol: Record<string, ScanResult> = { ...cryptoRaw, ...stockRaw };
+  const keptResults = keepSymbols.map((s) => allResultsBysymbol[s]).filter(Boolean);
 
   const buys = bySignal(tradeable, 'buy', CAP.buy);
   const sells = bySignal(tradeable, 'sell', CAP.sell);
@@ -83,7 +98,14 @@ export default function DashboardScreen() {
           <View style={styles.headerCard}>
             <View style={styles.headerTop}>
               <Text style={styles.title}>Channel Scanner</Text>
-              <LiveBadge isLive={anyLive} />
+              <View style={styles.headerActions}>
+                <LiveBadge isLive={anyLive} />
+                <Link href="/journal" asChild>
+                  <Pressable style={styles.journalButton}>
+                    <Text style={styles.journalButtonText}>Journal</Text>
+                  </Pressable>
+                </Link>
+              </View>
             </View>
             <Text style={styles.subtitle}>Support / resistance breakout monitor · picks under ${PRICE_LIMIT}</Text>
             {stockLoading && (
@@ -94,6 +116,13 @@ export default function DashboardScreen() {
             )}
             <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
           </View>
+
+          {keptResults.length > 0 && (
+            <>
+              <SectionHeader title="Pinned & Open Positions" count={keptResults.length} color={colors.accent} />
+              <Watchlist results={keptResults} names={names} />
+            </>
+          )}
 
           <SectionHeader title="Crypto" color={colors.purple} />
           <Watchlist results={cryptoResults} names={names} />
@@ -156,6 +185,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  journalButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    backgroundColor: `${colors.accent}26`,
+    borderWidth: 1,
+    borderColor: colors.accent,
+  },
+  journalButtonText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
   },
   title: {
     color: colors.text,

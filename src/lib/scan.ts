@@ -2,7 +2,7 @@ import { findPivots } from './pivots';
 import { clusterLevels } from './levels';
 import { detectChannels } from './channels';
 import { generateAlerts } from './alerts';
-import type { Candle, ScanResult } from './types';
+import type { Alert, Candle, ScanResult } from './types';
 
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
   const pivots = findPivots(candles, 5);
@@ -52,4 +52,69 @@ export function closestLevelDistance(result: ScanResult): number {
   const last = result.candles[result.candles.length - 1];
   if (!last || result.alerts.length === 0) return Infinity;
   return Math.min(...result.alerts.map((a) => Math.abs(last.close - a.levelPrice) / last.close));
+}
+
+export type StrengthTier = 'high' | 'medium' | 'low' | null;
+
+/** Buckets how big a confirmed move (breakout/breakdown/bounce) has been so far. */
+export function classifyStrength(strengthPct: number | undefined | null): StrengthTier {
+  if (strengthPct == null) return null;
+  if (strengthPct >= 10) return 'high';
+  if (strengthPct >= 5) return 'medium';
+  if (strengthPct >= 1) return 'low';
+  return null;
+}
+
+export type RiskLevel = 'high' | 'medium' | 'low';
+
+/**
+ * Risk read for a BUY/SELL call: how much of the channel's total room the
+ * move has already used up. A move that's already covered most of the
+ * channel's width has little room left before hitting the other side —
+ * chasing it is higher risk than catching a fresh, small move with the
+ * whole channel still ahead of it.
+ */
+export function assessRisk(strengthPct: number, widthPct: number): RiskLevel {
+  if (widthPct <= 0) return 'medium';
+  const consumed = strengthPct / widthPct;
+  if (consumed >= 0.7) return 'high';
+  if (consumed >= 0.35) return 'medium';
+  return 'low';
+}
+
+export interface SignalDetail {
+  signal: Signal;
+  strengthPct: number | null;
+  strengthTier: StrengthTier;
+  risk: RiskLevel | null;
+}
+
+const BUY_TYPES: Alert['type'][] = ['breakout', 'bounce_support'];
+const SELL_TYPES: Alert['type'][] = ['breakdown', 'bounce_resistance'];
+
+/** Full picture for a BUY/SELL result: the call, how strong the move is, and the risk of chasing it. */
+export function getSignalDetail(result: ScanResult): SignalDetail {
+  const signal = getSignal(result);
+  if (signal !== 'buy' && signal !== 'sell') {
+    return { signal, strengthPct: null, strengthTier: null, risk: null };
+  }
+
+  const relevantTypes = signal === 'buy' ? BUY_TYPES : SELL_TYPES;
+  const alert = result.alerts.find((a) => relevantTypes.includes(a.type) && a.strengthPct != null);
+  if (!alert || alert.strengthPct == null) {
+    return { signal, strengthPct: null, strengthTier: null, risk: null };
+  }
+
+  const channel = result.channels.find(
+    (c) =>
+      Math.abs(c.support.price - alert.levelPrice) < 0.01 * c.support.price ||
+      Math.abs(c.resistance.price - alert.levelPrice) < 0.01 * c.resistance.price
+  );
+
+  return {
+    signal,
+    strengthPct: alert.strengthPct,
+    strengthTier: classifyStrength(alert.strengthPct),
+    risk: channel ? assessRisk(alert.strengthPct, channel.widthPct) : null,
+  };
 }

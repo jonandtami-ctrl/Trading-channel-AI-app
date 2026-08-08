@@ -36,4 +36,25 @@ describe('generateAlerts', () => {
     const alerts = generateAlerts('TEST', candles, [channel]);
     expect(alerts).toHaveLength(0);
   });
+
+  it('attaches strengthPct to a breakout alert, measuring how far past resistance price closed', () => {
+    const channel = { ...makeChannel(100, 110), status: 'broken' as const, brokenDirection: 'up' as const };
+    const candles: Candle[] = [{ time: 0, open: 115, high: 116, low: 114, close: 121 }];
+    const alerts = generateAlerts('TEST', candles, [channel]);
+    const breakout = alerts.find((a) => a.type === 'breakout');
+    expect(breakout?.strengthPct).toBeCloseTo(10, 5); // (121-110)/110 * 100
+  });
+
+  it('attaches strengthPct to a bounce_support alert, measuring the move off the touched low', () => {
+    const channel = makeChannel(100, 110);
+    const candles: Candle[] = [
+      { time: 0, open: 100, high: 101, low: 99.8, close: 100 },
+      { time: 1, open: 100, high: 102, low: 99.6, close: 101 },
+      { time: 2, open: 101, high: 103, low: 100.5, close: 102 },
+      { time: 3, open: 102, high: 108, low: 101, close: 106 },
+    ];
+    const alerts = generateAlerts('TEST', candles, [channel]);
+    const bounce = alerts.find((a) => a.type === 'bounce_support');
+    expect(bounce?.strengthPct).toBeCloseTo(((106 - 99.6) / 99.6) * 100, 5);
+  });
 });

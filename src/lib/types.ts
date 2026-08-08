@@ -50,6 +50,8 @@ export interface Alert {
   levelPrice: number;
   time: number;
   message: string;
+  /** How far price has already moved off the level, as a percent — only set for breakout/breakdown/bounce alerts. */
+  strengthPct?: number;
 }
 
 export interface ScanResult {
