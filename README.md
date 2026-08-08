@@ -32,6 +32,16 @@ npx expo start
 Scan the QR code that appears with the **Expo Go** app (App Store /
 Play Store) — no build, no hosting, no app store review.
 
+## Weekly Sunday alert
+
+On launch, the app requests notification permission and schedules a
+recurring local notification for Sunday at 8pm listing which stocks are
+currently sitting in an active channel (`src/lib/notifications.ts`).
+It reschedules with fresh content every time the app is opened and
+finishes a scan, so the Sunday notification reflects whatever was true
+the last time you had the app open that week — local notifications
+can't recompute their own content at fire time without the app running.
+
 ## Project structure
 
 - `src/app/` — screens, file-based routing via `expo-router`
