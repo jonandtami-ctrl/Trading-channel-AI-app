@@ -1,25 +1,30 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
-import { colors } from '../../constants/theme';
+import { TabBarIcon } from '../../components/TabBarIcon';
+import { cardShadow, colors, radius } from '../../constants/theme';
 
 export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textDim,
+        tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: colors.bgPanel,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: 62,
-          paddingBottom: 8,
-          paddingTop: 6,
+          position: 'absolute',
+          left: 16,
+          right: 16,
+          bottom: 20,
+          height: 64,
+          borderRadius: radius.xl + 10,
+          backgroundColor: colors.bgElevated,
+          borderWidth: 1,
+          borderColor: colors.border,
+          ...cardShadow,
         },
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '700',
+        tabBarItemStyle: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: 64,
         },
       }}
     >
@@ -27,8 +32,8 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Dashboard',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'pulse' : 'pulse-outline'} size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon="pulse-outline" iconFocused="pulse" label="Dashboard" />
           ),
         }}
       />
@@ -36,8 +41,8 @@ export default function TabsLayout() {
         name="pinned"
         options={{
           title: 'Pinned',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'pin' : 'pin-outline'} size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon="pin-outline" iconFocused="pin" label="Pinned" />
           ),
         }}
       />
@@ -45,8 +50,8 @@ export default function TabsLayout() {
         name="journal"
         options={{
           title: 'Journal',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'book' : 'book-outline'} size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon="book-outline" iconFocused="book" label="Journal" />
           ),
         }}
       />
@@ -54,8 +59,8 @@ export default function TabsLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon="settings-outline" iconFocused="settings" label="Settings" />
           ),
         }}
       />

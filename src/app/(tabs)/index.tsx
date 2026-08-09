@@ -149,7 +149,7 @@ export default function DashboardScreen() {
           )}
 
           <SectionHeader title="Today's Top Picks" count={topPicks.length} color={colors.text} icon="star" />
-          <Watchlist results={topPicks} names={names} />
+          <Watchlist results={topPicks} names={names} horizontal />
 
           <SectionHeader title="Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} />
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   content: {
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   headerCard: {
     marginHorizontal: spacing.lg,

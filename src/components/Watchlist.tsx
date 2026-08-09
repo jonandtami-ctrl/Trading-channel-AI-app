@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ScanResult } from '../lib/types';
 import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
@@ -47,13 +47,52 @@ function signalPill(result: ScanResult): {
     : { label: 'No channel', color: colors.textDim, bg: `${colors.textDim}1a`, icon: 'ellipse-outline' };
 }
 
-export function Watchlist({ results, names }: { results: ScanResult[]; names: Record<string, string> }) {
+export function Watchlist({
+  results,
+  names,
+  horizontal,
+}: {
+  results: ScanResult[];
+  names: Record<string, string>;
+  /** Renders a swipeable row of poster-style cards instead of the default stacked list. */
+  horizontal?: boolean;
+}) {
   if (results.length === 0) {
     return (
       <View style={styles.empty}>
         <Ionicons name="moon-outline" size={18} color={colors.textDim} />
         <Text style={styles.emptyText}>Nothing here right now.</Text>
       </View>
+    );
+  }
+
+  if (horizontal) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
+        {results.map((result) => {
+          const last = result.candles[result.candles.length - 1];
+          const pill = signalPill(result);
+          return (
+            <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
+              <Pressable style={({ pressed }) => [styles.hCard, pressed && styles.cardPressed]}>
+                <View style={[styles.hCover, { backgroundColor: pill.bg }]}>
+                  <Ionicons name={pill.icon} size={26} color={pill.color} />
+                </View>
+                <Text style={styles.hSymbol}>{result.symbol}</Text>
+                <Text style={styles.hName} numberOfLines={1}>
+                  {names[result.symbol] ?? ''}
+                </Text>
+                <View style={styles.hBottomRow}>
+                  <Text style={styles.hPrice}>{last ? formatPrice(last.close) : '—'}</Text>
+                  <Text style={[styles.hPillText, { color: pill.color }]} numberOfLines={1}>
+                    {pill.label}
+                  </Text>
+                </View>
+              </Pressable>
+            </Link>
+          );
+        })}
+      </ScrollView>
     );
   }
 
@@ -167,6 +206,54 @@ const styles = StyleSheet.create({
   },
   chevron: {
     marginLeft: 6,
+  },
+  hRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  hCard: {
+    width: 130,
+    borderRadius: radius.md,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    paddingBottom: spacing.sm,
+    ...cardShadow,
+  },
+  hCover: {
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  hSymbol: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    paddingHorizontal: spacing.sm,
+  },
+  hName: {
+    color: colors.textDim,
+    fontSize: 10,
+    paddingHorizontal: spacing.sm,
+    marginTop: 1,
+  },
+  hBottomRow: {
+    paddingHorizontal: spacing.sm,
+    marginTop: 6,
+    gap: 2,
+  },
+  hPrice: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  hPillText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   empty: {
     padding: 24,
