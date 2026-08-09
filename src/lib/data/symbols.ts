@@ -1,7 +1,8 @@
 import { TSX_ETF_SYMBOLS } from './tsxEtfs';
 import { ETF_SYMBOLS } from './etfs';
+import { BLUE_CHIP_SYMBOLS } from './blueChip';
 
-export type Exchange = 'TSX' | 'ETF';
+export type Exchange = 'TSX' | 'ETF' | 'Blue Chip';
 
 export interface SymbolInfo {
   symbol: string; // display symbol, e.g. BTC or AAPL
@@ -70,10 +71,11 @@ export const CRYPTO_SYMBOLS: SymbolInfo[] = [
 ];
 
 const TSX_TAGGED: SymbolInfo[] = TSX_ETF_SYMBOLS.map((s) => ({ ...s, exchange: 'TSX' as const }));
+const BLUE_CHIP_TAGGED: SymbolInfo[] = BLUE_CHIP_SYMBOLS.map((s) => ({ ...s, exchange: 'Blue Chip' as const }));
 
-// TSX-listed leveraged ETFs (CAD, buyable from a Canadian brokerage) +
-// the existing US leveraged/inverse ETF lineup.
-export const STOCK_SYMBOLS: SymbolInfo[] = [...TSX_TAGGED, ...ETF_SYMBOLS];
+// A curated slice of the S&P 500 (large, financially solid names) + TSX-listed
+// leveraged ETFs (CAD) + the existing US leveraged/inverse ETF lineup.
+export const STOCK_SYMBOLS: SymbolInfo[] = [...BLUE_CHIP_TAGGED, ...TSX_TAGGED, ...ETF_SYMBOLS];
 
 export const ALL_SYMBOLS: SymbolInfo[] = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS];
 

@@ -147,6 +147,11 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <InfoRow icon="logo-bitcoin" label="Crypto" detail="Top 50 by market cap — live from Binance, refreshed every 60s. Best 10 shown." />
         <InfoRow
+          icon="business-outline"
+          label="Stocks"
+          detail="50 curated blue-chip S&P 500 names — live from Yahoo Finance, refreshed every 20 min"
+        />
+        <InfoRow
           icon="flag-outline"
           label="Canadian ETFs"
           detail="TSX-listed leveraged ETFs (CAD) — live from Yahoo Finance, refreshed every 20 min"

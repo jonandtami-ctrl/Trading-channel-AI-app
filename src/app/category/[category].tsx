@@ -79,19 +79,44 @@ export default function CategoryScreen() {
           <SectionHeader title="Stable Ranges" count={results.length} color={meta.color} icon={meta.icon} />
           <StableList results={results} names={names} />
         </>
+      ) : buys.length + sells.length + watchSupport.length + watchResistance.length === 0 ? (
+        !loading && (
+          <View style={styles.infoCard}>
+            <Ionicons name="moon-outline" size={14} color={colors.textDim} />
+            <Text style={styles.infoText}>Nothing set up here right now — check back later.</Text>
+          </View>
+        )
       ) : (
         <>
-          <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
-          <Watchlist results={buys} names={names} />
-
-          <SectionHeader title="Sell Signals" count={sells.length} color={colors.red} icon="trending-down" />
-          <Watchlist results={sells} names={names} />
-
-          <SectionHeader title="Watching — Near Support" count={watchSupport.length} color={colors.amber} icon="arrow-down-circle" />
-          <Watchlist results={watchSupport} names={names} />
-
-          <SectionHeader title="Watching — Near Resistance" count={watchResistance.length} color={colors.amber} icon="arrow-up-circle" />
-          <Watchlist results={watchResistance} names={names} />
+          {buys.length > 0 && (
+            <>
+              <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
+              <Watchlist results={buys} names={names} />
+            </>
+          )}
+          {sells.length > 0 && (
+            <>
+              <SectionHeader title="Sell Signals" count={sells.length} color={colors.red} icon="trending-down" />
+              <Watchlist results={sells} names={names} />
+            </>
+          )}
+          {watchSupport.length > 0 && (
+            <>
+              <SectionHeader title="Watching — Near Support" count={watchSupport.length} color={colors.amber} icon="arrow-down-circle" />
+              <Watchlist results={watchSupport} names={names} />
+            </>
+          )}
+          {watchResistance.length > 0 && (
+            <>
+              <SectionHeader
+                title="Watching — Near Resistance"
+                count={watchResistance.length}
+                color={colors.amber}
+                icon="arrow-up-circle"
+              />
+              <Watchlist results={watchResistance} names={names} />
+            </>
+          )}
         </>
       )}
     </ScrollView>

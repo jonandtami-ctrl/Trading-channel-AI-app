@@ -12,8 +12,8 @@ const TYPE_COLOR: Record<Alert['type'], string> = {
   approaching_resistance: colors.amber,
 };
 
-export function AlertsFeed({ alerts }: { alerts: Alert[] }) {
-  const sorted = [...alerts].sort((a, b) => b.time - a.time).slice(0, 30);
+export function AlertsFeed({ alerts, limit = 30 }: { alerts: Alert[]; limit?: number }) {
+  const sorted = [...alerts].sort((a, b) => b.time - a.time).slice(0, limit);
 
   if (sorted.length === 0) {
     return (
@@ -24,9 +24,12 @@ export function AlertsFeed({ alerts }: { alerts: Alert[] }) {
   }
 
   return (
-    <View>
+    <View style={styles.list}>
       {sorted.map((alert, i) => (
-        <View key={`${alert.symbol}-${alert.type}-${alert.time}-${i}`} style={styles.item}>
+        <View
+          key={`${alert.symbol}-${alert.type}-${alert.time}-${i}`}
+          style={[styles.item, i === sorted.length - 1 && styles.itemLast]}
+        >
           <View style={[styles.dot, { backgroundColor: TYPE_COLOR[alert.type] }]} />
           <Text style={styles.message}>
             <Text style={styles.symbol}>{alert.symbol}</Text> {alert.message}
@@ -39,18 +42,25 @@ export function AlertsFeed({ alerts }: { alerts: Alert[] }) {
 }
 
 const styles = StyleSheet.create({
+  list: {
+    marginHorizontal: spacing.lg,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgCard,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
-    marginHorizontal: spacing.lg,
-    marginBottom: 6,
-    borderRadius: radius.sm,
-    backgroundColor: colors.bgCard,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  itemLast: {
+    borderBottomWidth: 0,
   },
   dot: {
     width: 6,
