@@ -40,31 +40,28 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
         <Text style={styles.reasonText}>{plan.reason}</Text>
       </View>
 
-      <View style={styles.metaRow}>
-        <MetaChip icon="trending-up-outline" label={plan.trendLabel} />
-        <MetaChip icon="git-commit-outline" label={plan.channelDirection} capitalize />
-        <MetaChip icon="location-outline" label={plan.channelStateLabel} />
-      </View>
-
-      <View style={styles.scoreRow}>
-        <View style={styles.scoreTrack}>
-          <View style={[styles.scoreFill, { width: `${plan.qualityScore}%`, backgroundColor: scoreColor(plan.qualityScore) }]} />
-        </View>
+      <View style={styles.metaLine}>
+        <Text style={styles.metaLineText}>
+          {plan.trendLabel} · <Text style={{ textTransform: 'capitalize' }}>{plan.channelDirection}</Text> ·{' '}
+          {plan.channelStateLabel}
+        </Text>
         <Text style={styles.scoreText}>{plan.qualityScore}/100</Text>
+      </View>
+      <View style={styles.scoreTrack}>
+        <View style={[styles.scoreFill, { width: `${plan.qualityScore}%`, backgroundColor: scoreColor(plan.qualityScore) }]} />
       </View>
 
       <View style={styles.grid}>
-        <Row label="Support" value={formatPrice(plan.support)} />
-        <Row label="Resistance" value={formatPrice(plan.resistance)} />
-        <Row label="Last touched" value={touchRecencyLabel(plan.lastTouchDaysAgo)} />
-        <Row label="Setup type" value={plan.setupType} />
-        {plan.entryQuality && <Row label="Entry quality" value={ENTRY_QUALITY_LABEL[plan.entryQuality]} />}
-        <Row label="Volume" value={`${VOLUME_LABEL[plan.volumeLevel]} (${plan.volumeRatio.toFixed(1)}×)`} />
+        <Cell label="Support" value={formatPrice(plan.support)} />
+        <Cell label="Resistance" value={formatPrice(plan.resistance)} />
+        <Cell label="Setup type" value={plan.setupType} />
+        <Cell label="Last touched" value={touchRecencyLabel(plan.lastTouchDaysAgo)} />
+        {plan.entryQuality && <Cell label="Entry quality" value={ENTRY_QUALITY_LABEL[plan.entryQuality]} />}
+        <Cell label="Volume" value={`${VOLUME_LABEL[plan.volumeLevel]} (${plan.volumeRatio.toFixed(1)}×)`} />
+        {plan.entryZoneLow != null && plan.entryZoneHigh != null && (
+          <Cell label="Entry zone" value={`${formatPrice(plan.entryZoneLow)} – ${formatPrice(plan.entryZoneHigh)}`} wide />
+        )}
       </View>
-
-      {plan.entryZoneLow != null && plan.entryZoneHigh != null && (
-        <Row label="Entry zone" value={`${formatPrice(plan.entryZoneLow)} – ${formatPrice(plan.entryZoneHigh)}`} />
-      )}
 
       {plan.confirmationNeeded && (
         <View style={styles.confirmationBox}>
@@ -80,16 +77,20 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
             <PlanFigure label="Target 1" value={formatPrice(plan.target1)} sub={`+${plan.potentialGainPct?.toFixed(1)}%`} color={colors.green} />
             {plan.target2 != null && <PlanFigure label="Target 2" value={formatPrice(plan.target2)} color={colors.green} />}
           </View>
-          {plan.riskRewardRatio != null && (
-            <Text style={styles.rrText}>
-              Risk/Reward = <Text style={{ fontWeight: '800', color: colors.text }}>1 : {plan.riskRewardRatio.toFixed(1)}</Text>
-            </Text>
-          )}
-          {position && (
+          {(plan.riskRewardRatio != null || position) && (
             <Text style={styles.positionText}>
-              Suggested size @ {tradeSettings.riskPct}% risk of ${tradeSettings.accountSize.toLocaleString()}:{' '}
-              <Text style={{ fontWeight: '800', color: colors.text }}>{position.shares.toLocaleString()} shares</Text> (~
-              {formatPrice(position.dollarRisk)} at risk)
+              {plan.riskRewardRatio != null && (
+                <>
+                  R:R <Text style={{ fontWeight: '800', color: colors.text }}>1 : {plan.riskRewardRatio.toFixed(1)}</Text>
+                  {position && '  ·  '}
+                </>
+              )}
+              {position && (
+                <>
+                  <Text style={{ fontWeight: '800', color: colors.text }}>{position.shares.toLocaleString()} shares</Text> @{' '}
+                  {tradeSettings.riskPct}% risk (~${position.dollarRisk.toFixed(2)})
+                </>
+              )}
             </Text>
           )}
         </View>
@@ -109,20 +110,11 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Cell({ label, value, wide }: { label: string; value: string; wide?: boolean }) {
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
-    </View>
-  );
-}
-
-function MetaChip({ icon, label, capitalize }: { icon: keyof typeof Ionicons.glyphMap; label: string; capitalize?: boolean }) {
-  return (
-    <View style={styles.metaChip}>
-      <Ionicons name={icon} size={11} color={colors.textDim} />
-      <Text style={[styles.metaChipText, capitalize && { textTransform: 'capitalize' }]}>{label}</Text>
+    <View style={[styles.cell, wide && styles.cellWide]}>
+      <Text style={styles.cellLabel}>{label}</Text>
+      <Text style={styles.cellValue}>{value}</Text>
     </View>
   );
 }
@@ -177,66 +169,53 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 15,
   },
-  metaRow: {
+  metaLine: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  metaChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 20,
-    backgroundColor: colors.bgPanel,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  metaChipText: {
-    color: colors.textDim,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  scoreTrack: {
+  metaLineText: {
     flex: 1,
-    height: 6,
-    borderRadius: 3,
+    color: colors.textDim,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  scoreTrack: {
+    height: 4,
+    borderRadius: 2,
     backgroundColor: colors.border,
     overflow: 'hidden',
   },
   scoreFill: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
   },
   scoreText: {
     color: colors.textDim,
     fontSize: 11,
     fontWeight: '700',
-    minWidth: 48,
-    textAlign: 'right',
   },
   grid: {
-    gap: 2,
-  },
-  row: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  rowLabel: {
+  cell: {
+    width: '46%',
+    gap: 1,
+  },
+  cellWide: {
+    width: '100%',
+  },
+  cellLabel: {
     color: colors.textDim,
-    fontSize: 12,
+    fontSize: 10,
   },
-  rowValue: {
+  cellValue: {
     color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   confirmationBox: {
     flexDirection: 'row',

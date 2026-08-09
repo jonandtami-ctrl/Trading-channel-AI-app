@@ -27,32 +27,26 @@ export function CategoryTile({
           <Ionicons name="chevron-forward" size={14} color={colors.textDim} />
         </View>
         <Text style={styles.title}>{meta.title}</Text>
-        <Text style={styles.subtitle} numberOfLines={1}>
-          {meta.subtitle}
-        </Text>
         {meta.key === 'stable' ? (
-          <View style={styles.stableRow}>
-            <Text style={[styles.stableCount, { color: meta.color }]}>{total}</Text>
-            <Text style={styles.stableLabel}>in a tight range</Text>
+          <View style={styles.headlineRow}>
+            <Text style={[styles.headlineCount, { color: meta.color }]}>{total}</Text>
+            <Text style={styles.headlineLabel}>in a tight range</Text>
           </View>
         ) : (
-          <View style={styles.countsRow}>
-            <CountChip label="Buy" value={buyCount} color={colors.green} />
-            <CountChip label="Sell" value={sellCount} color={colors.red} />
-            <CountChip label="Watch" value={watchCount} color={colors.amber} />
-          </View>
+          <>
+            <View style={styles.headlineRow}>
+              <Text style={[styles.headlineCount, { color: buyCount + sellCount > 0 ? meta.color : colors.textDim }]}>
+                {buyCount + sellCount}
+              </Text>
+              <Text style={styles.headlineLabel}>actionable</Text>
+            </View>
+            <Text style={styles.breakdown} numberOfLines={1}>
+              {buyCount} buy · {sellCount} sell · {watchCount} watching
+            </Text>
+          </>
         )}
       </Pressable>
     </Link>
-  );
-}
-
-function CountChip({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <View style={styles.chip}>
-      <Text style={[styles.chipValue, { color }]}>{value}</Text>
-      <Text style={styles.chipLabel}>{label}</Text>
-    </View>
   );
 }
 
@@ -83,46 +77,25 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.text,
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
   },
-  subtitle: {
-    color: colors.textDim,
-    fontSize: 9,
-    marginTop: -4,
-  },
-  countsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  chip: {
-    alignItems: 'center',
-  },
-  chipValue: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  chipLabel: {
-    color: colors.textDim,
-    fontSize: 8,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
-  },
-  stableRow: {
+  headlineRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 5,
-    marginTop: 2,
   },
-  stableCount: {
-    fontSize: 18,
+  headlineCount: {
+    fontSize: 22,
     fontWeight: '800',
   },
-  stableLabel: {
+  headlineLabel: {
+    color: colors.textDim,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  breakdown: {
     color: colors.textDim,
     fontSize: 9,
-    fontWeight: '600',
   },
 });
