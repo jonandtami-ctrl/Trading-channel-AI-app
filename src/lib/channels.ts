@@ -11,6 +11,11 @@ const BREAK_TOLERANCE = 0.01; // price must close 1% past a level to count as br
 // a channel last touched 4 months ago isn't "active" just because someone
 // is viewing a 2-year chart; it should read the same on a 1Y, 2Y, or 3M view.
 const RECENT_CANDLES = 60;
+// A channel's full life — from its first touch to its last — must fit inside
+// roughly a month of trading days. Longer-spanning channels take quarters or
+// years to complete a swing between support and resistance, which isn't a
+// tradeable horizon for a swing trade entered today.
+const MAX_SPAN_CANDLES = 25;
 
 /**
  * Pairs support + resistance levels into channels. A pair only becomes a
@@ -19,8 +24,13 @@ const RECENT_CANDLES = 60;
  * or vanishingly thin, and at least one touch is recent enough to still
  * be relevant.
  */
-export function detectChannels(candles: Candle[], levels: Level[]): Channel[] {
+export function detectChannels(
+  candles: Candle[],
+  levels: Level[],
+  opts: { maxSpanCandles?: number } = {}
+): Channel[] {
   if (candles.length === 0) return [];
+  const maxSpanCandles = opts.maxSpanCandles ?? MAX_SPAN_CANDLES;
 
   const supports = levels.filter((l) => l.type === 'support' && l.touches.length >= MIN_TOUCHES);
   const resistances = levels.filter((l) => l.type === 'resistance' && l.touches.length >= MIN_TOUCHES);
@@ -47,6 +57,7 @@ export function detectChannels(candles: Candle[], levels: Level[]): Channel[] {
 
       const window = candles.slice(firstTouchIndex, lastTouchIndex + 1);
       if (window.length === 0) continue;
+      if (window.length > maxSpanCandles) continue;
 
       const bandLow = support.price * (1 - BAND_TOLERANCE);
       const bandHigh = resistance.price * (1 + BAND_TOLERANCE);

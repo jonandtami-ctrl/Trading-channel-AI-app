@@ -9,10 +9,16 @@ import type { Alert, Candle, ScanResult } from './types';
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
   const pivots = findPivots(candles, 5);
   const levels = clusterLevels(pivots);
+  // Swing-tradable channels only — span capped to roughly a month, so every
+  // BUY/SELL/WATCH call and chart annotation reflects a range that can
+  // realistically resolve within a day-to-month holding period.
   const channels = detectChannels(candles, levels);
   const alerts = generateAlerts(symbol, candles, channels);
   const tradePlan = computeBestTradePlan(symbol, candles, channels);
-  const stability = findStableChannel(candles, channels);
+  // Stability is deliberately the opposite of a swing call — a long-established,
+  // going-nowhere range — so it looks at channels without the swing span cap.
+  const longTermChannels = detectChannels(candles, levels, { maxSpanCandles: Infinity });
+  const stability = findStableChannel(candles, longTermChannels);
   return { symbol, candles, channels, alerts, isLive, tradePlan, stability };
 }
 

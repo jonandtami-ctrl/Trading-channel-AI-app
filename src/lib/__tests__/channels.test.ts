@@ -23,8 +23,8 @@ function buildChannelCandles(low: number, high: number, length: number): Candle[
 }
 
 describe('detectChannels', () => {
-  it('finds an active channel in a clean oscillating series', () => {
-    const candles = buildChannelCandles(100, 110, 60);
+  it('finds an active channel in a clean, fast-cycling oscillating series', () => {
+    const candles = buildChannelCandles(100, 110, 20);
     const pivots = findPivots(candles, 3);
     const levels = clusterLevels(pivots);
     const channels = detectChannels(candles, levels);
@@ -38,10 +38,10 @@ describe('detectChannels', () => {
   });
 
   it('flags a channel as broken once price closes decisively above resistance', () => {
-    const base = buildChannelCandles(100, 110, 60);
+    const base = buildChannelCandles(100, 110, 20);
     const breakout: Candle[] = [
       ...base,
-      { time: 60, open: 110, high: 118, low: 109, close: 117 },
+      { time: 20, open: 110, high: 118, low: 109, close: 117 },
     ];
     const pivots = findPivots(breakout, 3);
     const levels = clusterLevels(pivots);
@@ -64,5 +64,24 @@ describe('detectChannels', () => {
     const levels = clusterLevels(pivots);
     const channels = detectChannels(candles, levels);
     expect(channels).toHaveLength(0);
+  });
+
+  it('rejects a channel whose touches are spread across months, not a swing-tradable span', () => {
+    // Same shape as the fast-cycling series above, just stretched out so its
+    // first and last touch are ~60 candles apart — a multi-month range, not
+    // something that resolves in a day/week/month swing.
+    const candles = buildChannelCandles(100, 110, 60);
+    const pivots = findPivots(candles, 3);
+    const levels = clusterLevels(pivots);
+    const channels = detectChannels(candles, levels);
+    expect(channels).toHaveLength(0);
+  });
+
+  it('allows a longer span when the caller opts out of the swing cap', () => {
+    const candles = buildChannelCandles(100, 110, 60);
+    const pivots = findPivots(candles, 3);
+    const levels = clusterLevels(pivots);
+    const channels = detectChannels(candles, levels, { maxSpanCandles: Infinity });
+    expect(channels.length).toBeGreaterThan(0);
   });
 });
