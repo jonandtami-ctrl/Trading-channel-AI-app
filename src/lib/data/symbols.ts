@@ -1,7 +1,7 @@
-import { SP500_SYMBOLS } from './sp500';
+import { TSX_ETF_SYMBOLS } from './tsxEtfs';
 import { ETF_SYMBOLS } from './etfs';
 
-export type Exchange = 'S&P 500' | 'NASDAQ' | 'NYSE' | 'ETF';
+export type Exchange = 'TSX' | 'ETF';
 
 export interface SymbolInfo {
   symbol: string; // display symbol, e.g. BTC or AAPL
@@ -69,12 +69,11 @@ export const CRYPTO_SYMBOLS: SymbolInfo[] = [
   { symbol: 'ZEC', name: 'Zcash', kind: 'crypto', binancePair: 'ZECUSDT' },
 ];
 
-const SP500_TAGGED: SymbolInfo[] = SP500_SYMBOLS.map((s) => ({ ...s, exchange: 'S&P 500' as const }));
+const TSX_TAGGED: SymbolInfo[] = TSX_ETF_SYMBOLS.map((s) => ({ ...s, exchange: 'TSX' as const }));
 
-// S&P 500 + ETFs only — the S&P 500 is the standard large-cap ("blue chip")
-// benchmark, so sticking to it plus well-known ETFs keeps picks to
-// established, recognizable names instead of smaller/less-familiar tickers.
-export const STOCK_SYMBOLS: SymbolInfo[] = [...SP500_TAGGED, ...ETF_SYMBOLS];
+// TSX-listed leveraged ETFs (CAD, buyable from a Canadian brokerage) +
+// the existing US leveraged/inverse ETF lineup.
+export const STOCK_SYMBOLS: SymbolInfo[] = [...TSX_TAGGED, ...ETF_SYMBOLS];
 
 export const ALL_SYMBOLS: SymbolInfo[] = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS];
 

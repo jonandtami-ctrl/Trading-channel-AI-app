@@ -38,7 +38,7 @@ export default function DashboardScreen() {
 
   const cryptoResults = Object.values(crypto.results);
   const allStockResults = Object.values(stocks.results);
-  const stockResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange !== 'ETF');
+  const canadaResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
   const etfResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'ETF');
   const stableResults = allStockResults.filter((r) => !!r.stability);
 
@@ -47,14 +47,14 @@ export default function DashboardScreen() {
 
   const perCategory = {
     crypto: signalCounts(cryptoResults),
-    stocks: signalCounts(stockResults),
+    canada: signalCounts(canadaResults),
     etfs: signalCounts(etfResults),
     stable: { buy: 0, sell: 0, watch: 0, total: stableResults.length },
   };
 
-  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy + perCategory.etfs.buy;
-  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell + perCategory.etfs.sell;
-  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch + perCategory.etfs.watch;
+  const buysTotal = perCategory.crypto.buy + perCategory.canada.buy + perCategory.etfs.buy;
+  const sellsTotal = perCategory.crypto.sell + perCategory.canada.sell + perCategory.etfs.sell;
+  const watchTotal = perCategory.crypto.watch + perCategory.canada.watch + perCategory.etfs.watch;
 
   const allResults = [...cryptoResults, ...allStockResults];
   const topPicks = [...bySignal(allResults, 'buy'), ...bySignal(allResults, 'sell')]
@@ -84,10 +84,10 @@ export default function DashboardScreen() {
       {initialLoad ? (
         <View style={styles.spinnerWrap}>
           <Ionicons name="pulse" size={28} color={colors.accent} />
-          <Text style={styles.spinnerText}>Scanning crypto and the first batch of stocks…</Text>
+          <Text style={styles.spinnerText}>Scanning crypto and leveraged ETFs…</Text>
           <Text style={styles.spinnerSubtext}>
-            First load checks ~550 S&amp;P 500 &amp; ETF tickers, usually a minute or two. Results fill in below as
-            they come in.
+            First load checks ~60 Canadian &amp; US leveraged ETF tickers, usually just a few seconds. Results fill
+            in below as they come in.
           </Text>
         </View>
       ) : (
@@ -109,7 +109,7 @@ export default function DashboardScreen() {
               <View style={styles.progressRow}>
                 <Ionicons name="refresh" size={12} color={colors.blue} />
                 <Text style={styles.progressText}>
-                  scanning stocks &amp; ETFs… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
+                  scanning ETFs… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
                   {Math.round((stocks.scanned / stocks.total) * 100)}%)
                 </Text>
               </View>

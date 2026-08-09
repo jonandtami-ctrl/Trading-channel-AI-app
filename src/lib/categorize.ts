@@ -7,8 +7,8 @@ export function resultsForCategory(category: Category, cryptoResults: ScanResult
   switch (category) {
     case 'crypto':
       return cryptoResults;
-    case 'stocks':
-      return stockResults.filter((r) => findSymbol(r.symbol)?.exchange !== 'ETF');
+    case 'canada':
+      return stockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
     case 'etfs':
       return stockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'ETF');
     case 'stable':
