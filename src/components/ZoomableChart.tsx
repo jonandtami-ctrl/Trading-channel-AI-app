@@ -77,8 +77,22 @@ export function ZoomableChart({ candles, channels }: { candles: Candle[]; channe
   const chartWidth = containerWidth * zoom;
   const zoomed = zoom > MIN_ZOOM + 0.01;
 
+  const hasActiveChannel = channels.some((c) => c.status === 'active');
+
   return (
     <View onLayout={onLayout}>
+      {hasActiveChannel && (
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
+            <Text style={styles.legendText}>Buy line (support)</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: colors.red }]} />
+            <Text style={styles.legendText}>Sell line (resistance)</Text>
+          </View>
+        </View>
+      )}
       <View {...panResponder.panHandlers}>
         <ScrollView
           ref={scrollRef}
@@ -114,6 +128,26 @@ export function ZoomableChart({ candles, channels }: { candles: Candle[]; channe
 }
 
 const styles = StyleSheet.create({
+  legend: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  legendDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  legendText: {
+    color: colors.textDim,
+    fontSize: 10,
+    fontWeight: '600',
+  },
   controls: {
     flexDirection: 'row',
     alignItems: 'center',

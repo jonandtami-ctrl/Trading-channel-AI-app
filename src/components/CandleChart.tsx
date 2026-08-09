@@ -61,7 +61,12 @@ export function CandleChart({
     <View onLayout={onLayout}>
       <Svg width={width} height={height}>
         {channels.map((channel, i) => {
-          const lineColor = channel.status === 'broken' ? colors.amber : colors.blue;
+          const broken = channel.status === 'broken';
+          // Resistance is the sell line (take-profit / breakout level), support is the
+          // buy line (bounce entry) — same green/red language used everywhere else in
+          // the app. A broken channel dims both to amber since the level's no longer live.
+          const resistanceColor = broken ? colors.amber : colors.red;
+          const supportColor = broken ? colors.amber : colors.green;
           return (
             <G key={i}>
               <Line
@@ -69,11 +74,11 @@ export function CandleChart({
                 x2={plotWidth}
                 y1={y(channel.resistance.price)}
                 y2={y(channel.resistance.price)}
-                stroke={lineColor}
+                stroke={resistanceColor}
                 strokeWidth={1}
                 strokeDasharray="4,3"
               />
-              <SvgText x={plotWidth + 4} y={y(channel.resistance.price) + 3} fontSize={9} fill={lineColor}>
+              <SvgText x={plotWidth + 4} y={y(channel.resistance.price) + 3} fontSize={9} fill={resistanceColor}>
                 {formatAxisPrice(channel.resistance.price)}
               </SvgText>
               <Line
@@ -81,11 +86,11 @@ export function CandleChart({
                 x2={plotWidth}
                 y1={y(channel.support.price)}
                 y2={y(channel.support.price)}
-                stroke={lineColor}
+                stroke={supportColor}
                 strokeWidth={1}
                 strokeDasharray="4,3"
               />
-              <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={lineColor}>
+              <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={supportColor}>
                 {formatAxisPrice(channel.support.price)}
               </SvgText>
             </G>
