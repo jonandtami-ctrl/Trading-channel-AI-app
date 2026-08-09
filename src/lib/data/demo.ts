@@ -82,12 +82,18 @@ export function generateDemoCandles(symbol: string, days = 220): Candle[] {
     const high = Math.max(open, close) + wick * rand();
     const low = Math.max(0.01, Math.min(open, close) - wick * rand());
 
+    // Bigger moves get more volume, same story real breakouts/bounces tend to tell.
+    const moveFraction = Math.abs(close - open) / open;
+    const baseVolume = 300_000 + rand() * 700_000;
+    const volume = Math.round(baseVolume * (1 + moveFraction * 25) * (0.7 + rand() * 0.6));
+
     candles.push({
       time: startTime + i * dayMs,
       open,
       high,
       low,
       close,
+      volume,
     });
 
     price = close;

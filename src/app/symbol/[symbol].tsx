@@ -7,14 +7,17 @@ import { findSymbol } from '../../lib/data/symbols';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
 import { backtestChannel } from '../../lib/backtest';
+import { computeTradePlan } from '../../lib/tradePlan';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
 import { loadPinnedSymbols, togglePin } from '../../lib/pins';
 import { unrealizedPnl, type Trade } from '../../lib/journal';
 import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
+import { DEFAULT_TRADE_SETTINGS, loadTradeSettings, type TradeSettings } from '../../lib/tradeSettingsStorage';
 import { LiveBadge } from '../../components/LiveBadge';
 import { Disclaimer } from '../../components/Disclaimer';
 import { ZoomableChart } from '../../components/ZoomableChart';
 import { BacktestPlayer } from '../../components/BacktestPlayer';
+import { TradePlanCard } from '../../components/TradePlanCard';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
@@ -41,6 +44,7 @@ export default function SymbolScreen() {
   const [pinned, setPinned] = useState(false);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [modalMode, setModalMode] = useState<'log' | 'close' | null>(null);
+  const [tradeSettings, setTradeSettings] = useState<TradeSettings>(DEFAULT_TRADE_SETTINGS);
 
   useEffect(() => {
     navigation.setOptions({ title: symbol ?? '' });
@@ -50,6 +54,7 @@ export default function SymbolScreen() {
     if (!symbol) return;
     loadPinnedSymbols().then((pins) => setPinned(pins.includes(symbol)));
     loadTrades().then(setTrades);
+    loadTradeSettings().then(setTradeSettings);
   }, [symbol]);
 
   if (loading && !result) {
@@ -143,34 +148,10 @@ export default function SymbolScreen() {
       {result.channels.length > 0 ? (
         result.channels.map((channel, i) => {
           const backtest = backtestChannel(channel);
+          const plan = computeTradePlan(symbol, result.candles, channel);
           return (
             <View key={i}>
-              <View style={styles.card}>
-                <View style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>Status</Text>
-                  <Text style={styles.cardValue}>
-                    {channel.status === 'broken'
-                      ? `Broken ${channel.brokenDirection === 'up' ? 'up' : 'down'}`
-                      : 'Active channel'}
-                  </Text>
-                </View>
-                <View style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>Resistance</Text>
-                  <Text style={styles.cardValue}>{formatPrice(channel.resistance.price)}</Text>
-                </View>
-                <View style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>Support</Text>
-                  <Text style={styles.cardValue}>{formatPrice(channel.support.price)}</Text>
-                </View>
-                <View style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>Width</Text>
-                  <Text style={styles.cardValue}>{channel.widthPct.toFixed(1)}%</Text>
-                </View>
-                <View style={styles.cardRow}>
-                  <Text style={styles.cardLabel}>Containment</Text>
-                  <Text style={styles.cardValue}>{channel.containmentPct.toFixed(0)}%</Text>
-                </View>
-              </View>
+              <TradePlanCard plan={plan} tradeSettings={tradeSettings} />
 
               {backtest.trades.length > 0 && (
                 <BacktestPlayer candles={result.candles} channel={channel} backtest={backtest} />
@@ -295,30 +276,6 @@ const styles = StyleSheet.create({
   chartWrap: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-  },
-  card: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.bgCard,
-    ...cardShadow,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 3,
-  },
-  cardLabel: {
-    color: colors.textDim,
-    fontSize: 12,
-  },
-  cardValue: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: '600',
   },
   spinnerWrap: {
     padding: 40,

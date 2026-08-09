@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getSignal, closestLevelDistance, classifyStrength, assessRisk, getSignalDetail } from '../scan';
+import type { TradePlan } from '../tradePlan';
 import type { Alert, Candle, Channel, Level, ScanResult } from '../types';
 
 function makeResult(alerts: Alert[], lastClose = 100, channels: Channel[] = []): ScanResult {
@@ -45,6 +46,70 @@ describe('getSignal', () => {
 
   it('returns null when there are no relevant alerts', () => {
     expect(getSignal(makeResult([]))).toBeNull();
+  });
+});
+
+describe('getSignal — with a trade plan attached, the plan wins over raw alerts', () => {
+  function makePlan(overrides: Partial<TradePlan>): TradePlan {
+    return {
+      symbol: 'TEST',
+      currentPrice: 100,
+      trend: 'sideways',
+      trendLabel: 'Sideways',
+      channelDirection: 'horizontal',
+      support: 95,
+      resistance: 105,
+      channelState: 'mid_channel',
+      channelStateLabel: 'Mid Channel',
+      setupType: 'None',
+      entryZoneLow: null,
+      entryZoneHigh: null,
+      confirmationNeeded: null,
+      stopLoss: null,
+      stopPct: null,
+      target1: null,
+      target2: null,
+      potentialGainPct: null,
+      riskRewardRatio: null,
+      volumeLevel: 'normal',
+      volumeRatio: 1,
+      qualityScore: 50,
+      entryQuality: null,
+      warnings: [],
+      finalStatus: 'no_trade',
+      finalStatusLabel: '⚪ NO TRADE',
+      reason: '',
+      ...overrides,
+    };
+  }
+
+  function resultWithPlan(plan: TradePlan): ScanResult {
+    return { symbol: 'TEST', candles: [], channels: [], alerts: [{ type: 'bounce_support', symbol: 'TEST', price: 100, levelPrice: 95, time: 0, message: '' }], isLive: true, tradePlan: plan };
+  }
+
+  it('only calls BUY when the plan is a confirmed/high-quality bounce off support — a raw bounce_support alert alone is not enough', () => {
+    const weakBounce = resultWithPlan(makePlan({ channelState: 'bouncing_from_support', finalStatus: 'poor_risk_reward' }));
+    expect(getSignal(weakBounce)).toBeNull();
+
+    const qualityBounce = resultWithPlan(makePlan({ channelState: 'bouncing_from_support', finalStatus: 'confirmed_setup' }));
+    expect(getSignal(qualityBounce)).toBe('buy');
+  });
+
+  it('calls a channel breakdown a SELL regardless of alerts', () => {
+    const result = resultWithPlan(makePlan({ channelState: 'channel_breakdown', finalStatus: 'channel_breakdown' }));
+    expect(getSignal(result)).toBe('sell');
+  });
+
+  it('maps at_support and approaching/testing resistance to WATCH', () => {
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'at_support' })))).toBe('watch_support');
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'approaching_resistance' })))).toBe('watch_resistance');
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'testing_resistance' })))).toBe('watch_resistance');
+  });
+
+  it('returns null for mid-channel and unconfirmed breakout states', () => {
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'mid_channel' })))).toBeNull();
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'breakout_attempt' })))).toBeNull();
+    expect(getSignal(resultWithPlan(makePlan({ channelState: 'confirmed_breakout' })))).toBeNull();
   });
 });
 

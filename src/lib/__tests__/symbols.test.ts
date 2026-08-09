@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS, findSymbol } from '../data/symbols';
 
 describe('symbol data', () => {
-  it('has a stock universe spanning S&P 500 + extra NASDAQ/NYSE + ETFs', () => {
-    expect(STOCK_SYMBOLS.length).toBeGreaterThan(900);
-    expect(STOCK_SYMBOLS.length).toBeLessThan(1000);
+  it('has a stock universe spanning the S&P 500 + ETFs (large-cap only, no smaller-cap extras)', () => {
+    expect(STOCK_SYMBOLS.length).toBeGreaterThan(500);
+    expect(STOCK_SYMBOLS.length).toBeLessThan(600);
   });
 
   it('has no duplicate symbols across the combined universe', () => {
@@ -22,6 +22,6 @@ describe('symbol data', () => {
   it('finds a known crypto and stock symbol case-insensitively', () => {
     expect(findSymbol('BTC')?.name).toBe('Bitcoin');
     expect(findSymbol('aapl')?.name).toBe('Apple Inc.');
-    expect(CRYPTO_SYMBOLS.length).toBe(3);
+    expect(CRYPTO_SYMBOLS.length).toBe(50);
   });
 });

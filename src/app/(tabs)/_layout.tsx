@@ -33,11 +33,29 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="pinned"
+        options={{
+          title: 'Pinned',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'pin' : 'pin-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="journal"
         options={{
           title: 'Journal',
           tabBarIcon: ({ color, size, focused }) => (
             <Ionicons name={focused ? 'book' : 'book-outline'} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Settings',
+          tabBarIcon: ({ color, size, focused }) => (
+            <Ionicons name={focused ? 'settings' : 'settings-outline'} size={size} color={color} />
           ),
         }}
       />

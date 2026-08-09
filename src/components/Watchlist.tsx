@@ -81,10 +81,8 @@ export function Watchlist({ results, names }: { results: ScanResult[]; names: Re
                 </View>
                 {detail.strengthTier && (
                   <Text style={styles.detailText}>
-                    {detail.strengthPct?.toFixed(1)}% move · {STRENGTH_LABEL[detail.strengthTier]} strength
-                    {detail.risk && (
-                      <Text style={{ color: RISK_COLOR[detail.risk] }}> · {detail.risk} risk</Text>
-                    )}
+                    +{detail.strengthPct?.toFixed(1)}% · {STRENGTH_LABEL[detail.strengthTier]}
+                    {detail.risk && <Text style={{ color: RISK_COLOR[detail.risk] }}> · {detail.risk}</Text>}
                   </Text>
                 )}
               </View>

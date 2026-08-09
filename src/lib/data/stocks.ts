@@ -1,13 +1,22 @@
 import type { Candle } from '../types';
-import { fetchWithTimeout } from './fetchWithTimeout';
+import { fetchWithRetry } from './fetchWithTimeout';
+
+const YAHOO_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
 
 /**
  * Native apps aren't subject to browser CORS restrictions, so we can call
- * Yahoo Finance's chart endpoint directly — no proxy needed.
+ * Yahoo Finance's chart endpoint directly — no proxy needed. A realistic
+ * browser-style User-Agent + Accept headers make Yahoo's basic bot
+ * heuristics far less likely to reject the request outright.
  */
 export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Promise<Candle[]> {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d`;
-  const res = await fetchWithTimeout(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  const res = await fetchWithRetry(url, { headers: YAHOO_HEADERS });
   if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
 
   const json = await res.json();
@@ -20,6 +29,7 @@ export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Prom
   const highs: (number | null)[] = quote.high ?? [];
   const lows: (number | null)[] = quote.low ?? [];
   const closes: (number | null)[] = quote.close ?? [];
+  const volumes: (number | null)[] = quote.volume ?? [];
 
   const candles: Candle[] = [];
   for (let i = 0; i < timestamps.length; i++) {
@@ -30,6 +40,7 @@ export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Prom
       high: highs[i] as number,
       low: lows[i] as number,
       close: closes[i] as number,
+      volume: volumes[i] ?? undefined,
     });
   }
 

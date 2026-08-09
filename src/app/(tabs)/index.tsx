@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../../lib/data/symbols';
 import { closestLevelDistance, getSignal } from '../../lib/scan';
@@ -14,22 +14,11 @@ import { LiveBadge } from '../../components/LiveBadge';
 import { Disclaimer } from '../../components/Disclaimer';
 import { SectionHeader } from '../../components/SectionHeader';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
-import {
-  requestNotificationPermission,
-  scheduleWeeklyChannelAlert,
-  notifyNewSignals,
-  sendTestNotification,
-  type PermissionStatus,
-} from '../../lib/notifications';
+import { requestNotificationPermission, scheduleWeeklyChannelAlert, notifyNewSignals } from '../../lib/notifications';
 
 const CRYPTO_REFRESH_MS = 60 * 1000;
-const PRICE_LIMIT = 120;
+const CRYPTO_DISPLAY_CAP = 10;
 const CAP = { buy: 15, sell: 15, watchSupport: 5, watchResistance: 5 };
-
-function underLimit(r: ScanResult): boolean {
-  const last = r.candles[r.candles.length - 1];
-  return !!last && last.close > 0 && last.close < PRICE_LIMIT;
-}
 
 function bySignal(results: ScanResult[], signal: ReturnType<typeof getSignal>, cap: number): ScanResult[] {
   return results
@@ -41,9 +30,8 @@ function bySignal(results: ScanResult[], signal: ReturnType<typeof getSignal>, c
 export default function DashboardScreen() {
   const { results: cryptoRaw } = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
   const { results: stockRaw, loading: stockLoading, scanned, total } = useScanner(STOCK_SYMBOLS);
-  const [alertStatus, setAlertStatus] = useState<PermissionStatus | 'pending'>('pending');
+  const [alertStatus, setAlertStatus] = useState<'granted' | 'denied' | 'undetermined' | 'pending'>('pending');
   const [keepSymbols, setKeepSymbols] = useState<string[]>([]);
-  const scheduledOnce = useRef(false);
   const seenSignals = useRef<Set<string>>(new Set());
   const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
@@ -58,32 +46,36 @@ export default function DashboardScreen() {
 
   const cryptoResults = CRYPTO_SYMBOLS.map((s) => cryptoRaw[s.symbol]).filter(Boolean);
   const allStockResults = STOCK_SYMBOLS.map((s) => stockRaw[s.symbol]).filter(Boolean);
-  const tradeable = allStockResults.filter(underLimit);
   const allResultsBysymbol: Record<string, ScanResult> = { ...cryptoRaw, ...stockRaw };
   const keptResults = keepSymbols.map((s) => allResultsBysymbol[s]).filter(Boolean);
 
-  const buys = bySignal(tradeable, 'buy', CAP.buy);
-  const sells = bySignal(tradeable, 'sell', CAP.sell);
-  const watchSupport = bySignal(tradeable, 'watch_support', CAP.watchSupport);
-  const watchResistance = bySignal(tradeable, 'watch_resistance', CAP.watchResistance);
+  const buys = bySignal(allStockResults, 'buy', CAP.buy);
+  const sells = bySignal(allStockResults, 'sell', CAP.sell);
+  const watchSupport = bySignal(allStockResults, 'watch_support', CAP.watchSupport);
+  const watchResistance = bySignal(allStockResults, 'watch_resistance', CAP.watchResistance);
   const picks = [...buys, ...sells, ...watchSupport, ...watchResistance];
 
+  // All 50 crypto symbols get scanned every cycle; only the 10 closest to
+  // actually doing something (nearest alert level) are worth showing.
+  const topCrypto = [...cryptoResults]
+    .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
+    .slice(0, CRYPTO_DISPLAY_CAP);
+
   const anyLive = [...cryptoResults, ...allStockResults].some((r) => r.isLive);
-  const allAlerts = [...cryptoResults, ...picks].flatMap((r) => r.alerts);
+  const allAlerts = [...topCrypto, ...picks].flatMap((r) => r.alerts);
 
   useEffect(() => {
     requestNotificationPermission().then(setAlertStatus);
   }, []);
 
   useEffect(() => {
-    if (stockLoading || tradeable.length === 0 || alertStatus !== 'granted') return;
-    scheduleWeeklyChannelAlert(tradeable);
-    scheduledOnce.current = true;
-    notifyNewSignals(tradeable, seenSignals.current).then((next) => {
+    if (stockLoading || allStockResults.length === 0 || alertStatus !== 'granted') return;
+    scheduleWeeklyChannelAlert(allStockResults);
+    notifyNewSignals(allStockResults, seenSignals.current).then((next) => {
       seenSignals.current = next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockLoading, alertStatus, tradeable.length]);
+  }, [stockLoading, alertStatus, allStockResults.length]);
 
   const initialLoad = cryptoResults.length === 0 && allStockResults.length === 0;
 
@@ -94,7 +86,8 @@ export default function DashboardScreen() {
           <Ionicons name="pulse" size={28} color={colors.accent} />
           <Text style={styles.spinnerText}>Scanning crypto and the first batch of stocks…</Text>
           <Text style={styles.spinnerSubtext}>
-            First load checks ~950 tickers, usually a minute or two. Results fill in below as they come in.
+            First load checks ~550 S&amp;P 500 &amp; ETF tickers, usually a minute or two. Results fill in below as
+            they come in.
           </Text>
         </View>
       ) : (
@@ -109,7 +102,7 @@ export default function DashboardScreen() {
               </View>
               <LiveBadge isLive={anyLive} />
             </View>
-            <Text style={styles.subtitle}>Support / resistance breakout monitor · picks under ${PRICE_LIMIT}</Text>
+            <Text style={styles.subtitle}>Support / resistance breakout monitor · S&amp;P 500 + ETFs</Text>
             {stockLoading && (
               <View style={styles.progressRow}>
                 <Ionicons name="refresh" size={12} color={colors.blue} />
@@ -119,7 +112,6 @@ export default function DashboardScreen() {
                 </Text>
               </View>
             )}
-            <AlertStatusLine status={alertStatus} scheduled={scheduledOnce.current} />
             <Disclaimer compact />
           </View>
 
@@ -137,8 +129,8 @@ export default function DashboardScreen() {
             </>
           )}
 
-          <SectionHeader title="Crypto" color={colors.purple} icon="logo-bitcoin" />
-          <Watchlist results={cryptoResults} names={names} />
+          <SectionHeader title="Crypto" count={topCrypto.length} color={colors.purple} icon="logo-bitcoin" />
+          <Watchlist results={topCrypto} names={names} />
 
           <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
           <Watchlist results={buys} names={names} />
@@ -178,39 +170,6 @@ function StatTile({
       </View>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function AlertStatusLine({ status, scheduled }: { status: PermissionStatus | 'pending'; scheduled: boolean }) {
-  const [sent, setSent] = useState(false);
-
-  if (status === 'pending') return null;
-
-  let text = '';
-  if (status === 'denied') {
-    text = 'Notifications off — enable in Settings for the Sunday digest + instant buy/sell alerts.';
-  } else if (status === 'granted' && scheduled) {
-    text = 'Sunday 8pm digest + instant buy/sell alerts are on.';
-  } else if (status === 'granted') {
-    text = 'Setting up alerts…';
-  }
-
-  async function handleTestNotification() {
-    await sendTestNotification();
-    setSent(true);
-    setTimeout(() => setSent(false), 3000);
-  }
-
-  return (
-    <View style={styles.alertStatusRow}>
-      <Text style={styles.alertStatusText}>{text}</Text>
-      {status === 'granted' && (
-        <Pressable style={styles.testButton} onPress={handleTestNotification}>
-          <Ionicons name={sent ? 'checkmark' : 'notifications-outline'} size={11} color={colors.accent} />
-          <Text style={styles.testButtonText}>{sent ? 'Sent' : 'Send test'}</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -272,32 +231,6 @@ const styles = StyleSheet.create({
     color: colors.blue,
     fontSize: 11,
     fontWeight: '600',
-  },
-  alertStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: 2,
-  },
-  alertStatusText: {
-    color: colors.textDim,
-    fontSize: 10,
-    fontStyle: 'italic',
-    flexShrink: 1,
-  },
-  testButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    backgroundColor: `${colors.accent}1a`,
-  },
-  testButtonText: {
-    color: colors.accent,
-    fontSize: 9,
-    fontWeight: '700',
   },
   statsRow: {
     flexDirection: 'row',

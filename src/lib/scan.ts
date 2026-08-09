@@ -2,6 +2,7 @@ import { findPivots } from './pivots';
 import { clusterLevels } from './levels';
 import { detectChannels } from './channels';
 import { generateAlerts } from './alerts';
+import { computeBestTradePlan, type TradePlan } from './tradePlan';
 import type { Alert, Candle, ScanResult } from './types';
 
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
@@ -9,7 +10,8 @@ export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): 
   const levels = clusterLevels(pivots);
   const channels = detectChannels(candles, levels);
   const alerts = generateAlerts(symbol, candles, channels);
-  return { symbol, candles, channels, alerts, isLive };
+  const tradePlan = computeBestTradePlan(symbol, candles, channels);
+  return { symbol, candles, channels, alerts, isLive, tradePlan };
 }
 
 /** Urgency ranking used to sort the watchlist: breakouts first, then near a level, calm last. */
@@ -33,19 +35,31 @@ export function urgencyScore(result: ScanResult): number {
 
 export type Signal = 'buy' | 'sell' | 'watch_support' | 'watch_resistance' | null;
 
+const GREEN_STATUSES: TradePlan['finalStatus'][] = ['high_quality_setup', 'confirmed_setup'];
+
+/** Reads a call straight off a trade plan — the plan already encodes confirmation, quality, and risk/reward. */
+function signalFromTradePlan(plan: TradePlan): Signal {
+  if (plan.channelState === 'bouncing_from_support' && GREEN_STATUSES.includes(plan.finalStatus)) return 'buy';
+  if (plan.channelState === 'channel_breakdown' || plan.channelState === 'trending_below_channel') return 'sell';
+  if (plan.channelState === 'at_support') return 'watch_support';
+  if (plan.channelState === 'approaching_resistance' || plan.channelState === 'testing_resistance') {
+    return 'watch_resistance';
+  }
+  return null;
+}
+
 /**
- * Turns a result's alerts into a single trade call, following the
- * channel-trading pattern of buying at the bottom and selling at the
- * top: a bounce off support (price was rejected back up off the floor)
- * is a BUY. A confirmed breakdown or a bounce off (rejection at)
- * resistance is a SELL. A breakout is deliberately *not* a BUY — once
- * price has closed above resistance the channel is broken and price is
- * sitting up near the old resistance line, not bouncing off support, so
- * calling it a BUY the same way misrepresents where in the range it
- * actually is. Merely approaching a level isn't a confirmed reversal
- * yet, so it's a WATCH, not a firm call.
+ * Turns a result into a single trade call. When a trade plan is
+ * available (see tradePlan.ts), the call comes straight from it — a BUY
+ * requires a genuinely confirmed, quality-gated support bounce, not just
+ * any bounce alert, following the "structure -> confirmation -> risk ->
+ * reward -> entry" discipline instead of firing on a raw price event.
+ * Falls back to the simpler alert-based read when no plan is attached
+ * (e.g. in tests that construct a ScanResult directly).
  */
 export function getSignal(result: ScanResult): Signal {
+  if (result.tradePlan) return signalFromTradePlan(result.tradePlan);
+
   if (result.alerts.some((a) => a.type === 'bounce_support')) return 'buy';
   if (result.alerts.some((a) => a.type === 'breakdown' || a.type === 'bounce_resistance')) return 'sell';
   if (result.alerts.some((a) => a.type === 'approaching_support')) return 'watch_support';

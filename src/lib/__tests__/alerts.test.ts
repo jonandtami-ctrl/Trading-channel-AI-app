@@ -45,6 +45,30 @@ describe('generateAlerts', () => {
     expect(breakout?.strengthPct).toBeCloseTo(10, 5); // (121-110)/110 * 100
   });
 
+  it('fires bounce_resistance once price has pulled back to at-or-below resistance', () => {
+    const channel = makeChannel(100, 110);
+    const candles: Candle[] = [
+      { time: 0, open: 108, high: 108.5, low: 107.5, close: 108 },
+      { time: 1, open: 108, high: 111, low: 108, close: 109 },
+      { time: 2, open: 109, high: 109.5, low: 106.5, close: 107 },
+      { time: 3, open: 107, high: 107.5, low: 104.5, close: 105 },
+    ];
+    const alerts = generateAlerts('TEST', candles, [channel]);
+    expect(alerts.some((a) => a.type === 'bounce_resistance')).toBe(true);
+  });
+
+  it('does NOT fire bounce_resistance while price is still trading over resistance', () => {
+    const channel = makeChannel(100, 110);
+    const candles: Candle[] = [
+      { time: 0, open: 112, high: 112.5, low: 111.5, close: 112 },
+      { time: 1, open: 112, high: 118, low: 112, close: 116 },
+      { time: 2, open: 116, high: 116.5, low: 113.5, close: 114 },
+      { time: 3, open: 114, high: 114.5, low: 110.5, close: 111 },
+    ];
+    const alerts = generateAlerts('TEST', candles, [channel]);
+    expect(alerts.some((a) => a.type === 'bounce_resistance')).toBe(false);
+  });
+
   it('attaches strengthPct to a bounce_support alert, measuring the move off the touched low', () => {
     const channel = makeChannel(100, 110);
     const candles: Candle[] = [

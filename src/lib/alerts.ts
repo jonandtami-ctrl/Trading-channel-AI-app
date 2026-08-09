@@ -109,7 +109,11 @@ function detectBounce(candles: Candle[], supportPrice: number, resistancePrice: 
   if (supportTouches.length > 0 && last.close > first.close) {
     return { type: 'support', touchedPrice: Math.min(...supportTouches.map((c) => c.low)) };
   }
-  if (resistanceTouches.length > 0 && last.close < first.close) {
+  // Current price must have pulled back to at-or-below resistance, not just
+  // be declining from a higher spike — otherwise this could fire while price
+  // is still trading *over* resistance, which reads as a SELL happening past
+  // the line instead of the rejection-at-the-line call it's supposed to be.
+  if (resistanceTouches.length > 0 && last.close < first.close && last.close <= resistancePrice * 1.005) {
     return { type: 'resistance', touchedPrice: Math.max(...resistanceTouches.map((c) => c.high)) };
   }
   return null;

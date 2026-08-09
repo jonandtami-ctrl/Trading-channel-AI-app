@@ -4,6 +4,7 @@ export interface Candle {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 export type PivotType = 'high' | 'low';
@@ -60,4 +61,6 @@ export interface ScanResult {
   channels: Channel[];
   alerts: Alert[];
   isLive: boolean;
+  /** Best (highest-quality) trade plan across this symbol's channels, if any were found. */
+  tradePlan?: import('./tradePlan').TradePlan | null;
 }

@@ -3,9 +3,13 @@ import { Platform } from 'react-native';
 import type { ScanResult } from './types';
 import { buildSignalNotificationBody, buildWeeklyDigestBody, computeNewSignals } from './notificationContent';
 
-const WEEKLY_ALERT_ID = 'weekly-channel-alert';
+const SUNDAY_DIGEST_ID = 'weekly-channel-alert';
 const SUNDAY_HOUR = 20; // 8pm local time
 const SUNDAY_MINUTE = 0;
+
+const MONDAY_DIGEST_ID = 'monday-morning-digest';
+const MONDAY_HOUR = 8; // 8am local time
+const MONDAY_MINUTE = 0;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -45,32 +49,42 @@ export async function requestNotificationPermission(): Promise<PermissionStatus>
 }
 
 /**
- * Builds the "stocks in a channel" summary and (re)schedules a weekly
- * Sunday-night notification with it. Local notifications can't recompute
- * their content at fire time — this only stays current if the app gets
- * opened at least once before the next Sunday, since that's what
- * refreshes the scheduled content. Skipped on web: recurring/scheduled
- * triggers aren't supported there the way they are on iOS/Android.
+ * Builds the "stocks in a channel" summary and (re)schedules both weekly
+ * digest notifications with it (Sunday night to plan ahead, Monday morning
+ * as a fresh look right as the week starts). Local notifications can't
+ * recompute their content at fire time — each one only stays current if
+ * the app gets opened at least once before it next fires, since that's
+ * what refreshes the scheduled content. Skipped on web: recurring/
+ * scheduled triggers aren't supported there the way they are on iOS/
+ * Android.
  */
 export async function scheduleWeeklyChannelAlert(stockResults: ScanResult[]): Promise<void> {
   if (Platform.OS === 'web') return;
 
   const body = buildWeeklyDigestBody(stockResults);
 
-  await Notifications.cancelScheduledNotificationAsync(WEEKLY_ALERT_ID).catch(() => {});
+  await scheduleWeeklyDigest(SUNDAY_DIGEST_ID, 'Channel Scanner — weekly watchlist', body, 1, SUNDAY_HOUR, SUNDAY_MINUTE);
+  await scheduleWeeklyDigest(MONDAY_DIGEST_ID, 'Channel Scanner — Monday outlook', body, 2, MONDAY_HOUR, MONDAY_MINUTE);
+}
+
+async function scheduleWeeklyDigest(
+  id: string,
+  title: string,
+  body: string,
+  weekday: number,
+  hour: number,
+  minute: number
+): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => {});
 
   await Notifications.scheduleNotificationAsync({
-    identifier: WEEKLY_ALERT_ID,
-    content: {
-      title: 'Channel Scanner — weekly watchlist',
-      body,
-      sound: true,
-    },
+    identifier: id,
+    content: { title, body, sound: true },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-      weekday: 1, // 1 = Sunday
-      hour: SUNDAY_HOUR,
-      minute: SUNDAY_MINUTE,
+      weekday, // Expo's WEEKLY trigger: 1 = Sunday, 2 = Monday, ...
+      hour,
+      minute,
     },
   }).catch(() => {});
 }
