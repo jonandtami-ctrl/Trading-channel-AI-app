@@ -3,6 +3,7 @@ import { clusterLevels } from './levels';
 import { detectChannels } from './channels';
 import { generateAlerts } from './alerts';
 import { computeBestTradePlan, type TradePlan } from './tradePlan';
+import { findStableChannel } from './stability';
 import type { Alert, Candle, ScanResult } from './types';
 
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
@@ -11,7 +12,8 @@ export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): 
   const channels = detectChannels(candles, levels);
   const alerts = generateAlerts(symbol, candles, channels);
   const tradePlan = computeBestTradePlan(symbol, candles, channels);
-  return { symbol, candles, channels, alerts, isLive, tradePlan };
+  const stability = findStableChannel(candles, channels);
+  return { symbol, candles, channels, alerts, isLive, tradePlan, stability };
 }
 
 /** Urgency ranking used to sort the watchlist: breakouts first, then near a level, calm last. */
@@ -65,6 +67,14 @@ export function getSignal(result: ScanResult): Signal {
   if (result.alerts.some((a) => a.type === 'approaching_support')) return 'watch_support';
   if (result.alerts.some((a) => a.type === 'approaching_resistance')) return 'watch_resistance';
   return null;
+}
+
+/** Filters results down to one signal bucket, nearest-to-actionable first. */
+export function bySignal(results: ScanResult[], signal: Signal, cap = Infinity): ScanResult[] {
+  return results
+    .filter((r) => getSignal(r) === signal)
+    .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
+    .slice(0, cap);
 }
 
 /** Smallest current distance (as a fraction of price) from the last close to any alert's level. */

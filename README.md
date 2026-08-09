@@ -23,8 +23,9 @@ Settings tab). Trading involves risk of loss.
 - **Signals** (`getSignal` in `src/lib/scan.ts`) — the dashboard's BUY/SELL/WATCH read comes straight from the trade plan: **BUY** requires a genuinely confirmed, quality-gated bounce off support — not just any bounce alert; a breakout is deliberately *never* a BUY, since price sitting up near the old resistance line isn't "bouncing off support" the way this app's BUY call means. **SELL** is a confirmed channel breakdown. Merely approaching or testing a level without confirmation is a **WATCH**, not a firm call.
 - **Strength & risk** (`classifyStrength`/`assessRisk`/`getSignalDetail` in `src/lib/scan.ts`) — how big the move off the level has been so far, tiered High (10%+) / Medium (5%+) / Low (1%+); risk is how much of the channel's total width that move has already used up.
 - **Position sizing** — set your account size and risk-per-trade in Settings; every trade plan with a stop shows a suggested share count (`src/lib/positionSize.ts`): shares = (account size × risk%) ÷ (entry − stop), rounded down.
+- **Stability** (`src/lib/stability.ts`) — a separate, deliberately non-trade-call read: is this symbol sitting in a tight (≤9% wide), well-touched (5+ touches, 2+ per side), horizontal channel with a sideways trend over 90+ candles? If so it's "stable" — a candidate for a quiet, long-term range rather than an active setup. Powers the **Stable Ranges** category.
 
-Covered by unit tests in `src/lib/__tests__` (`npm test`) — 92 tests, including a full battery on `tradePlan.ts` covering every channel state (confirmed bounce, breakout attempt vs. confirmed vs. retest vs. false breakout, channel breakdown), entry-quality boundaries, and quality-score range checks.
+Covered by unit tests in `src/lib/__tests__` (`npm test`) — 99 tests, including a full battery on `tradePlan.ts` covering every channel state (confirmed bounce, breakout attempt vs. confirmed vs. retest vs. false breakout, channel breakdown), entry-quality boundaries, quality-score range checks, and `stability.ts`'s width/touch/trend gating.
 
 ## Data
 
@@ -49,14 +50,28 @@ Within a timeframe, the chart itself is pinch-to-zoomable
 built-in `PanResponder` — no extra native dependencies) with +/− buttons
 and a reset control as well, then drag left/right to pan once zoomed in.
 
-## Dashboard sections
+## Browse by market
 
-Picks are split into four sections, each capped independently:
+The dashboard itself stays short: a stats strip (total buys/sells/watching/kept
+across everything), four tappable category tiles, your pinned/open positions,
+a compact "Today's Top Picks" list (best 6 buy/sell calls anywhere, ranked by
+trade-plan quality score), and the alerts feed. Tapping a category tile opens
+a dedicated screen (`src/app/category/[category].tsx`) with the full
+breakdown for just that market:
 
-- **Buy Signals** (up to 15) — confirmed, quality-gated support bounces only
-- **Sell Signals** (up to 15) — confirmed channel breakdowns
-- **Watching — Near Support** (up to 5) — at support, not yet confirmed
-- **Watching — Near Resistance** (up to 5) — approaching or testing resistance, not yet confirmed
+- **Crypto** — all 50 scanned symbols, bucketed into Buy / Sell / Watching
+- **Stocks** — the S&P 500 only (ETFs split out separately), same buckets
+- **ETFs** — the leveraged/inverse ETF universe on its own, same buckets
+- **Stable Ranges** — not a buy/sell call at all; every symbol currently
+  sitting in a long, tight, sideways channel (`src/lib/stability.ts`), sorted
+  narrowest-range first, each card showing the actual range, its width, and
+  touch count
+
+Every category screen reads from one shared scan (`src/hooks/ScanDataProvider.tsx`,
+provided once at the app root) instead of re-scanning on each navigation, so
+drilling into a category is instant. Within a category, Buy/Sell/Watch
+buckets are capped at 25/25/15/15; the dashboard's own stats and "Today's Top
+Picks" are computed across all categories combined.
 
 ## Pinning, positions, and the trade journal
 
@@ -116,9 +131,12 @@ A couple of native-only APIs degrade gracefully on web instead of
 crashing: `shareTradesCsv` falls back to a plain browser download
 (`journalStorage.ts`) since there's no native share sheet, and the
 weekly recurring notifications are skipped entirely on web since
-scheduled/recurring triggers aren't supported there — instant
-notifications (test button, new signals) still attempt to fire via the
-browser's Notification API where permission allows it.
+scheduled/recurring triggers aren't supported there. Instant
+notifications (test button, new signals) go through the browser's own
+`Notification` API on web (`src/lib/notifications.ts`) rather than
+`expo-notifications`, which ships no working web implementation at all
+(its "web" module is a stub with no `scheduleNotificationAsync`) — calls
+into it on web would previously just silently do nothing.
 
 ## Notifications
 
@@ -139,6 +157,7 @@ confirm delivery is actually working on your device.
 ## Project structure
 
 - `src/app/` — screens, file-based routing via `expo-router`
-  (`(tabs)/index.tsx` = dashboard, `(tabs)/pinned.tsx` = pinned/open positions, `(tabs)/journal.tsx` = trade journal, `(tabs)/settings.tsx` = settings, `symbol/[symbol].tsx` = chart + trade plan detail, pushed outside the tab bar)
-- `src/components/` — `CandleChart`/`ZoomableChart` (SVG candlesticks + pinch-zoom), `TradePlanCard`, `Watchlist`, `AlertsFeed`, `SectionHeader`, `LiveBadge`, `BacktestPlayer`
-- `src/lib/` — the detection engine and data layer, plain TypeScript with no React Native or browser dependencies
+  (`(tabs)/index.tsx` = dashboard, `(tabs)/pinned.tsx` = pinned/open positions, `(tabs)/journal.tsx` = trade journal, `(tabs)/settings.tsx` = settings, `symbol/[symbol].tsx` = chart + trade plan detail, `category/[category].tsx` = per-market Buy/Sell/Watch or Stable Ranges drill-down, both pushed outside the tab bar)
+- `src/hooks/ScanDataProvider.tsx` — runs the crypto and stock/ETF scans once at the app root and shares the results via context, so the dashboard and every category screen read the same data instead of re-scanning
+- `src/components/` — `CandleChart`/`ZoomableChart` (SVG candlesticks + pinch-zoom), `TradePlanCard`, `Watchlist`, `StableList`, `CategoryTile`, `AlertsFeed`, `SectionHeader`, `LiveBadge`, `BacktestPlayer`
+- `src/lib/` — the detection engine and data layer, plain TypeScript with no React Native or browser dependencies (`categorize.ts` splits scan results into the four dashboard categories)

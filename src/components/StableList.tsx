@@ -2,89 +2,50 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ScanResult } from '../lib/types';
-import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
 
-const RISK_COLOR = { low: colors.green, medium: colors.amber, high: colors.red } as const;
-const STRENGTH_LABEL = { high: 'High', medium: 'Med', low: 'Low' } as const;
-
-function signalPill(result: ScanResult): {
-  label: string;
-  color: string;
-  bg: string;
-  icon: keyof typeof Ionicons.glyphMap;
-} {
-  const detail = getSignalDetail(result);
-  const has = (t: string) => result.alerts.some((a) => a.type === t);
-
-  if (detail.signal === 'buy') {
-    return {
-      label: 'BUY · Bounce',
-      color: colors.green,
-      bg: `${colors.green}26`,
-      icon: 'trending-up',
-    };
-  }
-  if (detail.signal === 'sell') {
-    return {
-      label: has('breakdown') ? 'SELL · Breakdown' : 'SELL · Rejected',
-      color: colors.red,
-      bg: `${colors.red}26`,
-      icon: 'trending-down',
-    };
-  }
-  if (detail.signal === 'watch_support') {
-    return { label: 'WATCH · Support', color: colors.amber, bg: `${colors.amber}26`, icon: 'eye' };
-  }
-  if (detail.signal === 'watch_resistance') {
-    return { label: 'WATCH · Resistance', color: colors.amber, bg: `${colors.amber}26`, icon: 'eye' };
-  }
-
-  const active = result.channels.some((c) => c.status === 'active');
-  return active
-    ? { label: 'In channel', color: colors.textDim, bg: `${colors.textDim}1a`, icon: 'radio-outline' }
-    : { label: 'No channel', color: colors.textDim, bg: `${colors.textDim}1a`, icon: 'ellipse-outline' };
-}
-
-export function Watchlist({ results, names }: { results: ScanResult[]; names: Record<string, string> }) {
+/** A dedicated list for the "stable / going nowhere" category — these aren't buy/sell calls, so it shows the range itself instead of a signal pill. */
+export function StableList({ results, names }: { results: ScanResult[]; names: Record<string, string> }) {
   if (results.length === 0) {
     return (
       <View style={styles.empty}>
         <Ionicons name="moon-outline" size={18} color={colors.textDim} />
-        <Text style={styles.emptyText}>Nothing here right now.</Text>
+        <Text style={styles.emptyText}>
+          Nothing sitting in a long, tight, sideways range right now — check back after the next scan.
+        </Text>
       </View>
     );
   }
 
+  const sorted = [...results].sort((a, b) => (a.stability?.widthPct ?? 0) - (b.stability?.widthPct ?? 0));
+
   return (
     <View>
-      {results.map((result) => {
+      {sorted.map((result) => {
         const last = result.candles[result.candles.length - 1];
-        const pill = signalPill(result);
-        const detail = getSignalDetail(result);
+        const info = result.stability;
+        if (!info) return null;
         return (
           <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
             <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
-              <View style={[styles.accentBar, { backgroundColor: pill.color }]} />
+              <View style={styles.accentBar} />
               <View style={styles.left}>
                 <Text style={styles.symbol}>{result.symbol}</Text>
                 <Text style={styles.name} numberOfLines={1}>
                   {names[result.symbol] ?? ''}
                 </Text>
+                <Text style={styles.range}>
+                  Range {formatPrice(info.support)}–{formatPrice(info.resistance)} · ±{(info.widthPct / 2).toFixed(1)}%
+                  · {info.touchCount} touches
+                </Text>
               </View>
               <View style={styles.right}>
                 <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
-                <View style={[styles.pill, { backgroundColor: pill.bg }]}>
-                  <Ionicons name={pill.icon} size={11} color={pill.color} />
-                  <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
+                <View style={styles.pill}>
+                  <Ionicons name="shield-checkmark-outline" size={11} color={colors.green} />
+                  <Text style={styles.pillText}>Stable range</Text>
                 </View>
-                {detail.strengthTier && (
-                  <Text style={styles.detailText} numberOfLines={1}>
-                    +{detail.strengthPct?.toFixed(1)}% · {STRENGTH_LABEL[detail.strengthTier]}
-                    {detail.risk && <Text style={{ color: RISK_COLOR[detail.risk] }}> · {detail.risk}</Text>}
-                  </Text>
-                )}
               </View>
               <Ionicons name="chevron-forward" size={16} color={colors.textDim} style={styles.chevron} />
             </Pressable>
@@ -121,6 +82,7 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 4,
+    backgroundColor: colors.green,
   },
   left: {
     flex: 1,
@@ -138,10 +100,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  range: {
+    color: colors.textDim,
+    fontSize: 10,
+    marginTop: 4,
+  },
   right: {
     alignItems: 'flex-end',
     gap: 6,
-    maxWidth: 132,
   },
   price: {
     color: colors.text,
@@ -155,15 +121,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
+    backgroundColor: `${colors.green}22`,
   },
   pillText: {
     fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  detailText: {
-    color: colors.textDim,
-    fontSize: 9,
+    color: colors.green,
   },
   chevron: {
     marginLeft: 6,
@@ -182,5 +145,7 @@ const styles = StyleSheet.create({
   emptyText: {
     color: colors.textDim,
     fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 16,
   },
 });

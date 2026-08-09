@@ -102,6 +102,15 @@ export default function SymbolScreen() {
           </Text>
           <LiveBadge isLive={result.isLive} />
         </View>
+        {result.stability && (
+          <View style={styles.stableBadge}>
+            <Ionicons name="shield-checkmark-outline" size={12} color={colors.green} />
+            <Text style={styles.stableBadgeText}>
+              Stable range · {formatPrice(result.stability.support)}–{formatPrice(result.stability.resistance)} · ±
+              {(result.stability.widthPct / 2).toFixed(1)}%
+            </Text>
+          </View>
+        )}
         <View style={styles.priceRow}>
           <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
           {signalMeta && (
@@ -272,6 +281,21 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 11,
     marginTop: 4,
+  },
+  stableBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    backgroundColor: `${colors.green}1a`,
+  },
+  stableBadgeText: {
+    color: colors.green,
+    fontSize: 10,
+    fontWeight: '700',
   },
   chartWrap: {
     paddingHorizontal: spacing.lg,

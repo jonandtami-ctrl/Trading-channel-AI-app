@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useScanner } from '../../hooks/useScanner';
-import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../../lib/data/symbols';
-import { closestLevelDistance, getSignal } from '../../lib/scan';
+import { useScanData } from '../../hooks/ScanDataProvider';
+import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
+import { bySignal } from '../../lib/scan';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
@@ -13,27 +13,19 @@ import { AlertsFeed } from '../../components/AlertsFeed';
 import { LiveBadge } from '../../components/LiveBadge';
 import { Disclaimer } from '../../components/Disclaimer';
 import { SectionHeader } from '../../components/SectionHeader';
+import { CategoryTile } from '../../components/CategoryTile';
+import { CATEGORIES } from '../../constants/categories';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 import { requestNotificationPermission, scheduleWeeklyChannelAlert, notifyNewSignals } from '../../lib/notifications';
 
-const CRYPTO_REFRESH_MS = 60 * 1000;
-const CRYPTO_DISPLAY_CAP = 10;
-const CAP = { buy: 15, sell: 15, watchSupport: 5, watchResistance: 5 };
-
-function bySignal(results: ScanResult[], signal: ReturnType<typeof getSignal>, cap: number): ScanResult[] {
-  return results
-    .filter((r) => getSignal(r) === signal)
-    .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
-    .slice(0, cap);
-}
+const TOP_PICKS_CAP = 6;
+const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function DashboardScreen() {
-  const { results: cryptoRaw } = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
-  const { results: stockRaw, loading: stockLoading, scanned, total } = useScanner(STOCK_SYMBOLS);
+  const { crypto, stocks } = useScanData();
   const [alertStatus, setAlertStatus] = useState<'granted' | 'denied' | 'undetermined' | 'pending'>('pending');
   const [keepSymbols, setKeepSymbols] = useState<string[]>([]);
   const seenSignals = useRef<Set<string>>(new Set());
-  const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
   useFocusEffect(
     useCallback(() => {
@@ -44,38 +36,46 @@ export default function DashboardScreen() {
     }, [])
   );
 
-  const cryptoResults = CRYPTO_SYMBOLS.map((s) => cryptoRaw[s.symbol]).filter(Boolean);
-  const allStockResults = STOCK_SYMBOLS.map((s) => stockRaw[s.symbol]).filter(Boolean);
-  const allResultsBysymbol: Record<string, ScanResult> = { ...cryptoRaw, ...stockRaw };
+  const cryptoResults = Object.values(crypto.results);
+  const allStockResults = Object.values(stocks.results);
+  const stockResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange !== 'ETF');
+  const etfResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'ETF');
+  const stableResults = allStockResults.filter((r) => !!r.stability);
+
+  const allResultsBysymbol: Record<string, ScanResult> = { ...crypto.results, ...stocks.results };
   const keptResults = keepSymbols.map((s) => allResultsBysymbol[s]).filter(Boolean);
 
-  const buys = bySignal(allStockResults, 'buy', CAP.buy);
-  const sells = bySignal(allStockResults, 'sell', CAP.sell);
-  const watchSupport = bySignal(allStockResults, 'watch_support', CAP.watchSupport);
-  const watchResistance = bySignal(allStockResults, 'watch_resistance', CAP.watchResistance);
-  const picks = [...buys, ...sells, ...watchSupport, ...watchResistance];
+  const perCategory = {
+    crypto: signalCounts(cryptoResults),
+    stocks: signalCounts(stockResults),
+    etfs: signalCounts(etfResults),
+    stable: { buy: 0, sell: 0, watch: 0, total: stableResults.length },
+  };
 
-  // All 50 crypto symbols get scanned every cycle; only the 10 closest to
-  // actually doing something (nearest alert level) are worth showing.
-  const topCrypto = [...cryptoResults]
-    .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
-    .slice(0, CRYPTO_DISPLAY_CAP);
+  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy + perCategory.etfs.buy;
+  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell + perCategory.etfs.sell;
+  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch + perCategory.etfs.watch;
 
-  const anyLive = [...cryptoResults, ...allStockResults].some((r) => r.isLive);
-  const allAlerts = [...topCrypto, ...picks].flatMap((r) => r.alerts);
+  const allResults = [...cryptoResults, ...allStockResults];
+  const topPicks = [...bySignal(allResults, 'buy'), ...bySignal(allResults, 'sell')]
+    .sort((a, b) => (b.tradePlan?.qualityScore ?? 0) - (a.tradePlan?.qualityScore ?? 0))
+    .slice(0, TOP_PICKS_CAP);
+
+  const anyLive = allResults.some((r) => r.isLive);
+  const allAlerts = allResults.flatMap((r) => r.alerts);
 
   useEffect(() => {
     requestNotificationPermission().then(setAlertStatus);
   }, []);
 
   useEffect(() => {
-    if (stockLoading || allStockResults.length === 0 || alertStatus !== 'granted') return;
+    if (stocks.loading || allStockResults.length === 0 || alertStatus !== 'granted') return;
     scheduleWeeklyChannelAlert(allStockResults);
     notifyNewSignals(allStockResults, seenSignals.current).then((next) => {
       seenSignals.current = next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stockLoading, alertStatus, allStockResults.length]);
+  }, [stocks.loading, alertStatus, allStockResults.length]);
 
   const initialLoad = cryptoResults.length === 0 && allStockResults.length === 0;
 
@@ -96,19 +96,21 @@ export default function DashboardScreen() {
             <View style={styles.headerTop}>
               <View style={styles.brandRow}>
                 <View style={styles.brandIcon}>
-                  <Ionicons name="pulse" size={18} color={colors.accent} />
+                  <Ionicons name="pulse" size={19} color={colors.accent} />
                 </View>
-                <Text style={styles.title}>Channel Scanner</Text>
+                <View>
+                  <Text style={styles.title}>Channel Scanner</Text>
+                  <Text style={styles.subtitle}>Support / resistance breakout monitor</Text>
+                </View>
               </View>
               <LiveBadge isLive={anyLive} />
             </View>
-            <Text style={styles.subtitle}>Support / resistance breakout monitor · S&amp;P 500 + ETFs</Text>
-            {stockLoading && (
+            {stocks.loading && (
               <View style={styles.progressRow}>
                 <Ionicons name="refresh" size={12} color={colors.blue} />
                 <Text style={styles.progressText}>
-                  scanning… {scanned.toLocaleString()} / {total.toLocaleString()} (
-                  {Math.round((scanned / total) * 100)}%)
+                  scanning stocks &amp; ETFs… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
+                  {Math.round((stocks.scanned / stocks.total) * 100)}%)
                 </Text>
               </View>
             )}
@@ -116,10 +118,27 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <StatTile icon="trending-up" label="Buys" value={buys.length} color={colors.green} />
-            <StatTile icon="trending-down" label="Sells" value={sells.length} color={colors.red} />
-            <StatTile icon="eye" label="Watching" value={watchSupport.length + watchResistance.length} color={colors.amber} />
+            <StatTile icon="trending-up" label="Buys" value={buysTotal} color={colors.green} />
+            <StatTile icon="trending-down" label="Sells" value={sellsTotal} color={colors.red} />
+            <StatTile icon="eye" label="Watching" value={watchTotal} color={colors.amber} />
             <StatTile icon="pin" label="Kept" value={keptResults.length} color={colors.accent} />
+          </View>
+
+          <SectionHeader title="Browse by Market" color={colors.text} icon="grid-outline" />
+          <View style={styles.categoryGrid}>
+            {CATEGORIES.map((meta) => {
+              const c = perCategory[meta.key];
+              return (
+                <CategoryTile
+                  key={meta.key}
+                  meta={meta}
+                  buyCount={c.buy}
+                  sellCount={c.sell}
+                  watchCount={c.watch}
+                  total={c.total}
+                />
+              );
+            })}
           </View>
 
           {keptResults.length > 0 && (
@@ -129,20 +148,8 @@ export default function DashboardScreen() {
             </>
           )}
 
-          <SectionHeader title="Crypto" count={topCrypto.length} color={colors.purple} icon="logo-bitcoin" />
-          <Watchlist results={topCrypto} names={names} />
-
-          <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
-          <Watchlist results={buys} names={names} />
-
-          <SectionHeader title="Sell Signals" count={sells.length} color={colors.red} icon="trending-down" />
-          <Watchlist results={sells} names={names} />
-
-          <SectionHeader title="Watching — Near Support" count={watchSupport.length} color={colors.amber} icon="arrow-down-circle" />
-          <Watchlist results={watchSupport} names={names} />
-
-          <SectionHeader title="Watching — Near Resistance" count={watchResistance.length} color={colors.amber} icon="arrow-up-circle" />
-          <Watchlist results={watchResistance} names={names} />
+          <SectionHeader title="Today's Top Picks" count={topPicks.length} color={colors.text} icon="star" />
+          <Watchlist results={topPicks} names={names} />
 
           <SectionHeader title="Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} />
@@ -150,6 +157,13 @@ export default function DashboardScreen() {
       )}
     </ScrollView>
   );
+}
+
+function signalCounts(results: ScanResult[]): { buy: number; sell: number; watch: number; total: number } {
+  const buy = bySignal(results, 'buy').length;
+  const sell = bySignal(results, 'sell').length;
+  const watch = bySignal(results, 'watch_support').length + bySignal(results, 'watch_resistance').length;
+  return { buy, sell, watch, total: results.length };
 }
 
 function StatTile({
@@ -191,7 +205,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgPanel,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 6,
+    gap: 8,
     ...cardShadow,
   },
   headerTop: {
@@ -202,25 +216,26 @@ const styles = StyleSheet.create({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   brandIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: `${colors.accent}22`,
   },
   title: {
     color: colors.text,
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   subtitle: {
     color: colors.textDim,
     fontSize: 11,
+    marginTop: 1,
   },
   progressRow: {
     flexDirection: 'row',
@@ -266,6 +281,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
   },
   spinnerWrap: {
     padding: 40,

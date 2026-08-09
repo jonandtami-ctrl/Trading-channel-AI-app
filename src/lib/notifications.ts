@@ -24,12 +24,51 @@ Notifications.setNotificationHandler({
 export type PermissionStatus = 'granted' | 'denied' | 'undetermined';
 
 /**
- * On web, notification support depends entirely on the browser (and on
- * iOS Safari, only works once the site is actually installed via "Add to
- * Home Screen" — a regular tab can't get permission at all). None of
- * that should ever crash the app, so every call here is defensive on web.
+ * expo-notifications ships no real web implementation — its "web" module
+ * is a stub (no scheduleNotificationAsync at all), so every native call in
+ * this file silently no-ops in a browser. Web has to go through the
+ * browser's own Notification API instead. On iOS Safari that API is only
+ * reachable once the site is installed via "Add to Home Screen" — a
+ * regular browser tab can't get permission at all.
  */
+type WebNotificationCtor = new (title: string, options?: { body?: string }) => unknown;
+interface WebNotificationGlobal {
+  Notification?: WebNotificationCtor & {
+    permission: 'granted' | 'denied' | 'default';
+    requestPermission: () => Promise<'granted' | 'denied' | 'default'>;
+  };
+}
+
+function getWebNotification() {
+  return (globalThis as unknown as WebNotificationGlobal).Notification;
+}
+
+function showWebNotification(title: string, body: string): void {
+  const WebNotification = getWebNotification();
+  if (!WebNotification || WebNotification.permission !== 'granted') return;
+  try {
+    new WebNotification(title, { body });
+  } catch {
+    // Some browsers (notably iOS Safari outside an installed PWA) throw
+    // synchronously here instead of just failing permission — never let
+    // that crash the app.
+  }
+}
+
 export async function requestNotificationPermission(): Promise<PermissionStatus> {
+  if (Platform.OS === 'web') {
+    const WebNotification = getWebNotification();
+    if (!WebNotification) return 'denied';
+    try {
+      if (WebNotification.permission === 'granted') return 'granted';
+      if (WebNotification.permission === 'denied') return 'denied';
+      const result = await WebNotification.requestPermission();
+      return result as PermissionStatus;
+    } catch {
+      return 'denied';
+    }
+  }
+
   try {
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('weekly-alerts', {
@@ -101,10 +140,17 @@ export async function notifyNewSignals(stockResults: ScanResult[], seen: Set<str
 
   if (newBuys.length === 0 && newSells.length === 0) return nextSeen;
 
+  const body = buildSignalNotificationBody(newBuys, newSells);
+
+  if (Platform.OS === 'web') {
+    showWebNotification('Channel Scanner — new signal', body);
+    return nextSeen;
+  }
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Channel Scanner — new signal',
-      body: buildSignalNotificationBody(newBuys, newSells),
+      body,
       sound: true,
     },
     trigger: null,
@@ -119,10 +165,17 @@ export async function notifyNewSignals(stockResults: ScanResult[], seen: Set<str
  * right now instead of waiting for a real buy/sell to show up.
  */
 export async function sendTestNotification(): Promise<void> {
+  const body = "If you're seeing this, notifications are working correctly.";
+
+  if (Platform.OS === 'web') {
+    showWebNotification('Channel Scanner — test notification', body);
+    return;
+  }
+
   await Notifications.scheduleNotificationAsync({
     content: {
       title: 'Channel Scanner — test notification',
-      body: "If you're seeing this, notifications are working correctly.",
+      body,
       sound: true,
     },
     trigger: null,
