@@ -59,7 +59,17 @@ export default function DashboardScreen() {
   const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch + perCategory.canada.watch + perCategory.etfs.watch;
 
   const allResults = [...cryptoResults, ...allStockResults];
-  const topPicks = [...bySignal(allResults, 'buy'), ...bySignal(allResults, 'sell')]
+
+  // "Best Buys Under $100" — confirmed bounce-off-support setups only, priced
+  // under $100, from crypto + curated stocks + Canadian ETFs (US leveraged
+  // ETFs excluded — those run their own category). Ranked by trade-plan
+  // quality, not just proximity to a level.
+  const bestBuyPool = [...cryptoResults, ...stockResults, ...canadaResults];
+  const bestBuys = bySignal(bestBuyPool, 'buy')
+    .filter((r) => {
+      const last = r.candles[r.candles.length - 1];
+      return last != null && last.close < 100;
+    })
     .sort((a, b) => (b.tradePlan?.qualityScore ?? 0) - (a.tradePlan?.qualityScore ?? 0))
     .slice(0, TOP_PICKS_CAP);
 
@@ -150,8 +160,8 @@ export default function DashboardScreen() {
             </>
           )}
 
-          <SectionHeader title="Today's Top Picks" count={topPicks.length} color={colors.text} icon="star" />
-          <Watchlist results={topPicks} names={names} horizontal />
+          <SectionHeader title="Best Buys Under $100" count={bestBuys.length} color={colors.text} icon="star" />
+          <Watchlist results={bestBuys} names={names} horizontal />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

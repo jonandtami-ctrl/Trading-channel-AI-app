@@ -1,18 +1,18 @@
 export const colors = {
-  bg: '#0a0e14',
-  bgPanel: '#141b26',
-  bgPanelHover: '#1b2330',
-  bgCard: '#131a24',
-  bgElevated: '#1a2230',
-  border: '#232d3d',
-  text: '#eef2f6',
-  textDim: '#8891a0',
-  green: '#3fb950',
-  red: '#f85149',
-  amber: '#d29922',
-  blue: '#58a6ff',
-  purple: '#a371f7',
-  accent: '#2ea6ff',
+  bg: '#f4f6fa',
+  bgPanel: '#ffffff',
+  bgCard: '#ffffff',
+  bgElevated: '#ffffff',
+  bgPanelHover: '#eef1f6',
+  border: '#e1e6ee',
+  text: '#1b2436',
+  textDim: '#69738a',
+  green: '#1a8f4c',
+  red: '#dc2626',
+  amber: '#b45309',
+  blue: '#2563eb',
+  purple: '#8b5cf6',
+  accent: '#0ea5e9',
 } as const;
 
 export const radius = {
@@ -30,20 +30,20 @@ export const spacing = {
   xl: 24,
 } as const;
 
-// A soft elevated-card shadow, tuned for the dark theme (subtle on iOS,
-// falls back to Android's `elevation`).
+// A soft elevated-card shadow, tuned for the light theme — subtle enough
+// not to look like a heavy smudge on white.
 export const cardShadow = {
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.35,
+  shadowColor: '#1b2436',
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.1,
   shadowRadius: 10,
-  elevation: 4,
+  elevation: 3,
 } as const;
 
 export const glowShadow = (color: string) => ({
   shadowColor: color,
   shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.45,
+  shadowOpacity: 0.28,
   shadowRadius: 8,
   elevation: 3,
 });

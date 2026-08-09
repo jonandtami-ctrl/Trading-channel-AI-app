@@ -28,10 +28,10 @@ if (html.includes('apple-mobile-web-app-capable')) {
 }
 
 const tags = `
-    <meta name="theme-color" content="#0a0e14" />
+    <meta name="theme-color" content="#f4f6fa" />
     <meta name="description" content="Scans crypto, stocks, and ETFs for support/resistance channels and calls out BUY/SELL/WATCH signals." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Channel Scanner" />
     <link rel="apple-touch-icon" href="icon.png" />
     <link rel="icon" href="icon.png" />

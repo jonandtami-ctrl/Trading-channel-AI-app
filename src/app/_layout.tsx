@@ -7,7 +7,7 @@ import { ScanDataProvider } from '../hooks/ScanDataProvider';
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ScanDataProvider>
         <Stack
           screenOptions={{

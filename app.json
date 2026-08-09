@@ -6,15 +6,15 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "channelscanner",
-    "userInterfaceStyle": "dark",
-    "backgroundColor": "#0a0e14",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#f4f6fa",
     "ios": {
       "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0a0e14"
+        "backgroundColor": "#f4f6fa"
       }
     },
     "plugins": [
@@ -24,14 +24,14 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
-          "backgroundColor": "#0a0e14"
+          "backgroundColor": "#f4f6fa"
         }
       ],
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#58a6ff"
+          "color": "#2563eb"
         }
       ]
     ],

@@ -13,11 +13,24 @@ PANEL = (19, 26, 38)
 LINE = (88, 166, 255)
 PRICE = (63, 185, 80)
 
+# Light variant — used for the splash screen so it matches the app's light
+# theme instead of flashing a dark square before the UI loads.
+LIGHT_BG_TOP = (244, 246, 250)
+LIGHT_BG_BOTTOM = (238, 241, 246)
+LIGHT_PANEL = (255, 255, 255)
+LIGHT_LINE = (37, 99, 235)
+LIGHT_PRICE = (26, 143, 76)
+
 def lerp(a, b, t):
     return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(3))
 
-def make_icon(size, margin_scale=1.0):
-    px = [[lerp(BG_TOP, BG_BOTTOM, y / (size - 1)) for _ in range(size)] for y in range(size)]
+def make_icon(size, margin_scale=1.0, light=False):
+    bg_top, bg_bottom, panel, line_color, price_color = (
+        (LIGHT_BG_TOP, LIGHT_BG_BOTTOM, LIGHT_PANEL, LIGHT_LINE, LIGHT_PRICE)
+        if light
+        else (BG_TOP, BG_BOTTOM, PANEL, LINE, PRICE)
+    )
+    px = [[lerp(bg_top, bg_bottom, y / (size - 1)) for _ in range(size)] for y in range(size)]
 
     def set_px(x, y, color, w=1):
         for dx in range(-(w // 2), w - w // 2):
@@ -42,7 +55,7 @@ def make_icon(size, margin_scale=1.0):
 
     # rounded-feeling inner panel (corners left square; masked round by the OS anyway)
     panel_margin = size * 0.08
-    fill_rect(panel_margin, panel_margin, size - panel_margin, size - panel_margin, PANEL)
+    fill_rect(panel_margin, panel_margin, size - panel_margin, size - panel_margin, panel)
 
     margin = size * 0.22 * margin_scale
     top = size * 0.5 - (size * 0.16)
@@ -50,8 +63,8 @@ def make_icon(size, margin_scale=1.0):
     lw = max(2, round(size * 0.016))
 
     # support / resistance lines
-    line(margin, top, size - margin, top, LINE, lw)
-    line(margin, bottom, size - margin, bottom, LINE, lw)
+    line(margin, top, size - margin, top, line_color, lw)
+    line(margin, bottom, size - margin, bottom, line_color, lw)
 
     # zigzag price path bouncing between them
     pts_x = [margin, margin + (size - 2 * margin) * 0.18, margin + (size - 2 * margin) * 0.36,
@@ -60,7 +73,7 @@ def make_icon(size, margin_scale=1.0):
     pts_y = [size * 0.5, top + lw * 2, bottom - lw * 2, top + lw * 2, bottom - lw * 2, size * 0.42]
     pw = max(3, round(size * 0.026))
     for i in range(len(pts_x) - 1):
-        line(pts_x[i], pts_y[i], pts_x[i + 1], pts_y[i + 1], PRICE, pw)
+        line(pts_x[i], pts_y[i], pts_x[i + 1], pts_y[i + 1], price_color, pw)
 
     return px
 
@@ -88,5 +101,5 @@ if __name__ == '__main__':
     os.makedirs(out_dir, exist_ok=True)
     write_png(os.path.join(out_dir, 'icon.png'), make_icon(1024))
     write_png(os.path.join(out_dir, 'adaptive-icon.png'), make_icon(1024, margin_scale=2.2))
-    write_png(os.path.join(out_dir, 'splash-icon.png'), make_icon(400))
-    print('wrote icon.png, adaptive-icon.png, splash-icon.png')
+    write_png(os.path.join(out_dir, 'splash-icon.png'), make_icon(400, light=True))
+    print('wrote icon.png, adaptive-icon.png, splash-icon.png (light)')
