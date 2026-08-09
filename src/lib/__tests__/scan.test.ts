@@ -59,6 +59,7 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
       channelDirection: 'horizontal',
       support: 95,
       resistance: 105,
+      lastTouchDaysAgo: 0,
       channelState: 'mid_channel',
       channelStateLabel: 'Mid Channel',
       setupType: 'None',

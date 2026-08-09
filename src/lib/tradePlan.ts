@@ -65,6 +65,8 @@ export interface TradePlan {
   channelDirection: ChannelDirection;
   support: number;
   resistance: number;
+  /** Days between the most recent candle and this channel's last support/resistance touch — how current the levels actually are. */
+  lastTouchDaysAgo: number;
   channelState: ChannelState;
   channelStateLabel: string;
   setupType: string;
@@ -115,6 +117,8 @@ export function computeTradePlan(symbol: string, candles: Candle[], channel: Cha
   const volume = classifyVolume(candles, candles.length - 1);
 
   const channelState = determineChannelState(candles, channel);
+  const lastTouchCandle = candles[Math.max(0, Math.min(channel.lastTouchIndex, candles.length - 1))];
+  const lastTouchDaysAgo = Math.round((last.time - lastTouchCandle.time) / 86400);
   const width = resistance.price - support.price;
   const positionFromSupport = width > 0 ? (currentPrice - support.price) / width : 0.5;
 
@@ -162,6 +166,7 @@ export function computeTradePlan(symbol: string, candles: Candle[], channel: Cha
     channelDirection,
     support: support.price,
     resistance: resistance.price,
+    lastTouchDaysAgo,
     channelState,
     channelStateLabel: CHANNEL_STATE_LABELS[channelState],
     setupType: plan.setupType,

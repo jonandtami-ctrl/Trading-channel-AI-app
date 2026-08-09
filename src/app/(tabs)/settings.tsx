@@ -158,12 +158,12 @@ export default function SettingsScreen() {
       <View style={styles.card}>
         <Text style={styles.disclaimerTitle}>Not financial advice</Text>
         <Text style={styles.disclaimerBody}>
-          Channel Scanner is a personal practice-trading tool. Every BUY, SELL, and WATCH call is generated
-          automatically from historical price patterns — it is informational only and is not a recommendation to
-          buy or sell any security, ETF, or cryptocurrency. Trading involves risk, including the risk of loss.
-          Past channel behavior is not a guarantee of future price movement. Nothing in this app should be
-          treated as investment, legal, or tax advice — consult a licensed professional before making financial
-          decisions.
+          Channel Scanner is a personal trading-analysis tool built on live market data. Every BUY, SELL, and WATCH
+          call is generated automatically from real price patterns — it is informational only and is not a
+          recommendation to buy or sell any security, ETF, or cryptocurrency. Trading involves risk, including the
+          risk of loss. Past channel behavior is not a guarantee of future price movement. Nothing in this app
+          should be treated as investment, legal, or tax advice — consult a licensed professional before making
+          financial decisions.
         </Text>
         <Text style={styles.versionText}>Channel Scanner v1.0.0</Text>
       </View>

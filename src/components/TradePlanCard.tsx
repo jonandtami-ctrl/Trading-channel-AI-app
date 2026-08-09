@@ -56,6 +56,7 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
       <View style={styles.grid}>
         <Row label="Support" value={formatPrice(plan.support)} />
         <Row label="Resistance" value={formatPrice(plan.resistance)} />
+        <Row label="Last touched" value={touchRecencyLabel(plan.lastTouchDaysAgo)} />
         <Row label="Setup type" value={plan.setupType} />
         {plan.entryQuality && <Row label="Entry quality" value={ENTRY_QUALITY_LABEL[plan.entryQuality]} />}
         <Row label="Volume" value={`${VOLUME_LABEL[plan.volumeLevel]} (${plan.volumeRatio.toFixed(1)}×)`} />
@@ -134,6 +135,12 @@ function PlanFigure({ label, value, sub, color }: { label: string; value: string
       {sub && <Text style={styles.planFigureSub}>{sub}</Text>}
     </View>
   );
+}
+
+function touchRecencyLabel(daysAgo: number): string {
+  if (daysAgo <= 0) return 'Today';
+  if (daysAgo === 1) return '1 day ago';
+  return `${daysAgo} days ago`;
 }
 
 function scoreColor(score: number): string {

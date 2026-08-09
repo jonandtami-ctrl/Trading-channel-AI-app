@@ -7,19 +7,19 @@ channel-trading methodology (buy confirmed bounces off support, not raw
 price moves; require confirmation before calling a breakout; gate every
 call on quality, volume, trend, and risk/reward before it's shown).
 
-**Not financial advice.** This is a personal practice-trading tool —
-every signal is informational only, not a recommendation to buy or
-sell anything (`src/components/Disclaimer.tsx`, shown on the dashboard
-and on any symbol with an active signal, plus the full version on the
-Settings tab). Trading involves risk of loss.
+**Not financial advice.** This is a personal trading-analysis tool built
+on live market data — every signal is informational only, not a
+recommendation to buy or sell anything (`src/components/Disclaimer.tsx`,
+shown on the dashboard and on any symbol with an active signal, plus the
+full version on the Settings tab). Trading involves risk of loss.
 
 ## How it works
 
 - **Pivots** — swing highs/lows found with a symmetric local-extreme window (`src/lib/pivots.ts`)
 - **Levels** — nearby pivots clustered into support/resistance zones (`src/lib/levels.ts`)
-- **Channels** — a support + resistance pair becomes a channel only if both sides have 2+ touches, price stayed contained between them 80%+ of the time, the band is 1–15% wide, and at least one touch is recent; it flips to `broken` once price closes decisively past either level (`src/lib/channels.ts`)
+- **Channels** — a support + resistance pair becomes a channel only if both sides have 2+ touches, price stayed contained between them 80%+ of the time, the band is 1–15% wide, and at least one touch fell within the last ~60 candles (roughly 3 months of daily data) — a fixed window regardless of which timeframe you're viewing, so a 1Y or 2Y chart never surfaces a channel that's actually gone stale just because it's still inside a longer lookback; it flips to `broken` once price closes decisively past either level (`src/lib/channels.ts`)
 - **Alerts** — approaching a level, bouncing off one, or breaking out/down (`src/lib/alerts.ts`)
-- **Trade plan** (`src/lib/tradePlan.ts`) — the core decision engine. Given a channel, works out exactly where price is in the structure (12 states: at support, bouncing from support, mid-channel, approaching/testing resistance, breakout attempt/confirmed/retest/false, channel breakdown, trending above/below channel), classifies trend (`src/lib/trend.ts`), channel slope (`src/lib/channelDirection.ts`), and volume (`src/lib/volumeAnalysis.ts`), then produces a full plan: setup type, entry zone, confirmation needed, stop-loss, two targets, risk/reward ratio, a 0–100 quality score, entry quality (excellent/good/acceptable/late/poor), warnings (descending channel, FOMO distance from support, weak breakout volume, poor risk/reward), and a final plain-language status (🟢/🟡/🔴/⚪) with the reasoning behind it. Shown in full on every symbol's detail screen (`src/components/TradePlanCard.tsx`).
+- **Trade plan** (`src/lib/tradePlan.ts`) — the core decision engine. Given a channel, works out exactly where price is in the structure (12 states: at support, bouncing from support, mid-channel, approaching/testing resistance, breakout attempt/confirmed/retest/false, channel breakdown, trending above/below channel), classifies trend (`src/lib/trend.ts`), channel slope (`src/lib/channelDirection.ts`), and volume (`src/lib/volumeAnalysis.ts`), then produces a full plan: setup type, entry zone, confirmation needed, stop-loss, two targets, risk/reward ratio, a 0–100 quality score, entry quality (excellent/good/acceptable/late/poor), how many days ago the channel's levels were actually last touched, warnings (descending channel, FOMO distance from support, weak breakout volume, poor risk/reward), and a final plain-language status (🟢/🟡/🔴/⚪) with the reasoning behind it. Shown in full on every symbol's detail screen (`src/components/TradePlanCard.tsx`).
 - **Signals** (`getSignal` in `src/lib/scan.ts`) — the dashboard's BUY/SELL/WATCH read comes straight from the trade plan: **BUY** requires a genuinely confirmed, quality-gated bounce off support — not just any bounce alert; a breakout is deliberately *never* a BUY, since price sitting up near the old resistance line isn't "bouncing off support" the way this app's BUY call means. **SELL** is a confirmed channel breakdown. Merely approaching or testing a level without confirmation is a **WATCH**, not a firm call.
 - **Strength & risk** (`classifyStrength`/`assessRisk`/`getSignalDetail` in `src/lib/scan.ts`) — how big the move off the level has been so far, tiered High (10%+) / Medium (5%+) / Low (1%+); risk is how much of the channel's total width that move has already used up.
 - **Position sizing** — set your account size and risk-per-trade in Settings; every trade plan with a stop shows a suggested share count (`src/lib/positionSize.ts`): shares = (account size × risk%) ÷ (entry − stop), rounded down.

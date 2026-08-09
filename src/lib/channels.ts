@@ -6,7 +6,11 @@ const MAX_WIDTH_PCT = 15;
 const MIN_CONTAINMENT_PCT = 80;
 const BAND_TOLERANCE = 0.005; // 0.5% slack around each level when checking containment
 const BREAK_TOLERANCE = 0.01; // price must close 1% past a level to count as broken
-const RECENCY_FRACTION = 0.35; // last touch must be within the most recent 35% of candles
+// Last touch must fall within roughly the most recent ~3 months of daily
+// data. Fixed in candles, not a fraction of whatever lookback is loaded —
+// a channel last touched 4 months ago isn't "active" just because someone
+// is viewing a 2-year chart; it should read the same on a 1Y, 2Y, or 3M view.
+const RECENT_CANDLES = 60;
 
 /**
  * Pairs support + resistance levels into channels. A pair only becomes a
@@ -21,7 +25,7 @@ export function detectChannels(candles: Candle[], levels: Level[]): Channel[] {
   const supports = levels.filter((l) => l.type === 'support' && l.touches.length >= MIN_TOUCHES);
   const resistances = levels.filter((l) => l.type === 'resistance' && l.touches.length >= MIN_TOUCHES);
   const channels: Channel[] = [];
-  const recencyCutoff = candles.length * (1 - RECENCY_FRACTION);
+  const recencyCutoff = Math.max(0, candles.length - RECENT_CANDLES);
 
   for (const support of supports) {
     for (const resistance of resistances) {
