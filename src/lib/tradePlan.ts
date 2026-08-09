@@ -91,6 +91,14 @@ export interface TradePlan {
 
 const APPROACH_PCT = 1.5;
 const BREAK_TOLERANCE_PCT = 1;
+// A breakout-family stop is anchored to the resistance level, not to
+// current price. If price has since run far away from that anchor (e.g.
+// trending_above_channel, or a breakout_retest that kept climbing), the
+// resulting stop distance can balloon into an unusable, misleadingly huge
+// "risk" — and the target can even fall below where price already is. Past
+// this cap, there's no sane structural stop from here; the plan should say
+// so instead of showing a distorted number.
+const MAX_STOP_DISTANCE_PCT = 10;
 const CHANNEL_STATE_LABELS: Record<ChannelState, string> = {
   at_support: 'At Support',
   bouncing_from_support: 'Bouncing From Support',
@@ -329,6 +337,25 @@ interface EntryPlan {
   target2: number | null;
 }
 
+/** True once a resistance-anchored stop is far enough from current price that it's no longer a sane, usable risk figure. */
+function stopTooFar(currentPrice: number, stopLoss: number): boolean {
+  return ((currentPrice - stopLoss) / currentPrice) * 100 > MAX_STOP_DISTANCE_PCT;
+}
+
+/** Same shape as the no-clean-entry fallback: price has moved too far from the structural level to say anything useful about risk from here. */
+function extendedNoTradePlan(currentPrice: number): EntryPlan {
+  return {
+    setupType: 'None',
+    entry: currentPrice,
+    entryZoneLow: null,
+    entryZoneHigh: null,
+    confirmationNeeded: 'Price has moved too far from the breakout level for a sane stop-loss from here — wait for a pullback or a fresh setup closer to the current price.',
+    stopLoss: null,
+    target1: null,
+    target2: null,
+  };
+}
+
 /** Stop below invalidation, target at/beyond the channel's opposite edge. */
 function buildEntryPlan(state: ChannelState, support: number, resistance: number, currentPrice: number): EntryPlan {
   const channelHeight = resistance - support;
@@ -357,28 +384,34 @@ function buildEntryPlan(state: ChannelState, support: number, resistance: number
         target2: resistance + channelHeight * 0.25,
       };
     case 'confirmed_breakout':
-    case 'trending_above_channel':
+    case 'trending_above_channel': {
+      const stopLoss = resistance * 0.985;
+      if (stopTooFar(currentPrice, stopLoss)) return extendedNoTradePlan(currentPrice);
       return {
         setupType: 'Breakout',
         entry: currentPrice,
         entryZoneLow: resistance * 0.995,
         entryZoneHigh: resistance * 1.03,
         confirmationNeeded: null,
-        stopLoss: resistance * 0.985,
+        stopLoss,
         target1: resistance + channelHeight,
         target2: resistance + channelHeight * 1.5,
       };
-    case 'breakout_retest':
+    }
+    case 'breakout_retest': {
+      const stopLoss = resistance * 0.98;
+      if (stopTooFar(currentPrice, stopLoss)) return extendedNoTradePlan(currentPrice);
       return {
         setupType: 'Breakout retest',
         entry: currentPrice,
         entryZoneLow: resistance * 0.995,
         entryZoneHigh: resistance * 1.02,
         confirmationNeeded: null,
-        stopLoss: resistance * 0.98,
+        stopLoss,
         target1: resistance + channelHeight,
         target2: resistance + channelHeight * 1.5,
       };
+    }
     case 'breakout_attempt':
       return {
         setupType: 'Breakout (unconfirmed)',

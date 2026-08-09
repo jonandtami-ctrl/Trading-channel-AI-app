@@ -151,6 +151,46 @@ describe('computeTradePlan — descending channel warning', () => {
   });
 });
 
+describe('computeTradePlan — runaway stop distance once price has extended too far from the breakout level', () => {
+  it('does not anchor a stop to the old resistance once price has run far past it (trending_above_channel)', () => {
+    const channel = baseChannel(100, 110, 'broken', 'up');
+    // Broke out long ago and has kept climbing well past the channel — a stop at the old
+    // resistance would now sit >30% below current price, not a usable risk figure.
+    const candles: Candle[] = [
+      c(108), c(109), c(112), c(113), c(115), c(118), c(120), c(122), c(125), c(128), c(132), c(137),
+    ];
+    const plan = computeTradePlan('XYZ', candles, channel);
+    expect(plan.channelState).toBe('trending_above_channel');
+    expect(plan.setupType).toBe('None');
+    expect(plan.stopLoss).toBeNull();
+    expect(plan.target1).toBeNull();
+    expect(plan.stopPct).toBeNull();
+    expect(plan.confirmationNeeded).toContain('too far');
+  });
+
+  it('still gives a real, tight stop/target when a confirmed breakout has not run away yet', () => {
+    const channel = baseChannel(100, 110, 'broken', 'up');
+    const candles: Candle[] = [c(108), c(109), c(112), c(113), c(114)];
+    const plan = computeTradePlan('XYZ', candles, channel);
+    expect(plan.channelState).toBe('confirmed_breakout');
+    expect(plan.stopLoss).not.toBeNull();
+    expect(Math.abs(plan.stopPct!)).toBeLessThan(10);
+  });
+
+  it('does not anchor a stop to the old resistance for a breakout_retest that kept climbing away from it', () => {
+    const channel = baseChannel(100, 110, 'broken', 'up');
+    // Breaks out, dips back to retest resistance (confirming the retest), then runs away.
+    const candles: Candle[] = [
+      c(108), c(109), c(112.6), c(109.5), c(110.5), c(111.5), c(118), c(125), c(132), c(140),
+    ];
+    const plan = computeTradePlan('XYZ', candles, channel);
+    expect(plan.channelState).toBe('breakout_retest');
+    expect(plan.setupType).toBe('None');
+    expect(plan.stopLoss).toBeNull();
+    expect(plan.confirmationNeeded).toContain('too far');
+  });
+});
+
 describe('computeTradePlan — quality score stays within 0-100', () => {
   it('never exceeds the 0-100 range across a variety of states', () => {
     const scenarios: [Channel, Candle[]][] = [
