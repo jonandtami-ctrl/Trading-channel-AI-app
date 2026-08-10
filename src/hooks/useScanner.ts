@@ -3,7 +3,6 @@ import { fetchCandles } from '../lib/data/fetch';
 import { scanSymbol } from '../lib/scan';
 import type { ScanResult } from '../lib/types';
 import type { SymbolInfo } from '../lib/data/symbols';
-import { DEFAULT_TIMEFRAME, type Timeframe } from '../lib/timeframes';
 
 export interface ScannerState {
   results: Record<string, ScanResult>;
@@ -27,15 +26,11 @@ function sleep(ms: number) {
  * they arrive instead of blocking on the whole universe.
  *
  * refreshMs lets callers pick their own cadence — crypto (3 symbols,
- * cheap to refetch) can refresh far more often than a 900-symbol stock
- * scan without hammering anything. timeframe controls how much history
- * is fetched per symbol (and re-triggers a scan when changed).
+ * cheap to refetch) can refresh far more often than a full stock/ETF scan
+ * without hammering anything. fetchCandles always analyzes a fixed,
+ * generous history regardless of what a chart happens to be displaying.
  */
-export function useScanner(
-  symbols: SymbolInfo[],
-  refreshMs: number = DEFAULT_REFRESH_MS,
-  timeframe: Timeframe = DEFAULT_TIMEFRAME
-): ScannerState {
+export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS): ScannerState {
   const [results, setResults] = useState<Record<string, ScanResult>>({});
   const [loading, setLoading] = useState(true);
   const [scanned, setScanned] = useState(0);
@@ -58,7 +53,7 @@ export function useScanner(
         await Promise.all(
           batch.map(async (info) => {
             try {
-              const { candles, isLive } = await fetchCandles(info.symbol, timeframe);
+              const { candles, isLive } = await fetchCandles(info.symbol);
               resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
             } catch {
               // fetchCandles never throws in practice, but keep the scan resilient regardless
@@ -83,7 +78,7 @@ export function useScanner(
       clearInterval(interval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbolKey, refreshMs, timeframe.label]);
+  }, [symbolKey, refreshMs]);
 
   return { results, loading, scanned, total: symbols.length };
 }

@@ -41,7 +41,7 @@ export default function SymbolScreen() {
   const info = symbol ? findSymbol(symbol) : undefined;
   const priceKind = info?.kind === 'stock' ? 'stock' : 'crypto';
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
-  const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS, timeframe);
+  const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS);
   const result = symbol ? results[symbol] : undefined;
 
   const [pinned, setPinned] = useState(false);
@@ -80,6 +80,19 @@ export default function SymbolScreen() {
   const signal = getSignal(result);
   const signalMeta = signal ? SIGNAL_META[signal] : null;
   const openTrade = trades.find((t) => t.symbol === symbol && t.status === 'open');
+
+  // The scan always analyzes a full 2-year history; the timeframe selector only
+  // controls how much of that the chart displays — so switching it is instant
+  // (no re-fetch, no re-scan) and never comes up empty for a short window.
+  // Channel lines stay unfiltered by the zoom window (they already only ever
+  // reflect a touch within the last ~60 trading days, and need to keep
+  // matching the exact numbers TradePlanCard shows below). The lighter
+  // "forming" levels are supplementary, so those do narrow to what's visible.
+  const sliceStart = Math.max(0, result.candles.length - timeframe.days);
+  const visibleCandles = result.candles.slice(sliceStart);
+  const visibleLevels = recentLevels(result.levels, result.candles.length).filter(
+    (l) => l.touches[l.touches.length - 1].index >= sliceStart
+  );
 
   async function handlePin() {
     const next = await togglePin(symbol!);
@@ -154,11 +167,7 @@ export default function SymbolScreen() {
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <View style={styles.chartWrap}>
-        <ZoomableChart
-          candles={result.candles}
-          channels={result.channels}
-          levels={recentLevels(result.levels, result.candles.length)}
-        />
+        <ZoomableChart candles={visibleCandles} channels={result.channels} levels={visibleLevels} />
       </View>
 
       {result.channels.length > 0 ? (
@@ -176,7 +185,7 @@ export default function SymbolScreen() {
           );
         })
       ) : (
-        <CurrentTrend candles={result.candles} />
+        <CurrentTrend candles={visibleCandles} />
       )}
 
       <SectionHeader title="Alerts" color={colors.blue} />
