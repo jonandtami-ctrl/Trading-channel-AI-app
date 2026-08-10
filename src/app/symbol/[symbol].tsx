@@ -6,7 +6,7 @@ import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { fetchIntradayCandles } from '../../lib/data/fetch';
 import type { Candle } from '../../lib/types';
-import { formatPrice } from '../../lib/format';
+import { formatPrice, formatDate } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
 import { recentLevels } from '../../lib/levels';
 import { tradingViewUrl } from '../../lib/tradingview';
@@ -141,6 +141,12 @@ export default function SymbolScreen() {
           </Text>
           <LiveBadge isLive={result.isLive} />
         </View>
+        {last && (
+          <Text style={styles.dataAsOf}>
+            Data as of {formatDate(last.time)}
+            {!result.isLive && ' — demo, not a live fetch'}
+          </Text>
+        )}
         {result.stability && (
           <View style={styles.stableBadge}>
             <Ionicons name="shield-checkmark-outline" size={12} color={colors.green} />
@@ -262,6 +268,11 @@ const styles = StyleSheet.create({
     color: colors.textDim,
     fontSize: 12,
     flexShrink: 1,
+  },
+  dataAsOf: {
+    color: colors.textDim,
+    fontSize: 10,
+    marginTop: 2,
   },
   priceRow: {
     flexDirection: 'row',
