@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
+import { fetchIntradayCandles } from '../../lib/data/fetch';
+import type { Candle } from '../../lib/types';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
 import { recentLevels } from '../../lib/levels';
@@ -44,6 +46,21 @@ export default function SymbolScreen() {
   const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS);
   const result = symbol ? results[symbol] : undefined;
 
+  // "1D" needs real intraday data — daily bars give literally one candle —
+  // so it's fetched separately and lazily, only once actually selected.
+  const [intraday, setIntraday] = useState<{ candles: Candle[]; isLive: boolean } | null>(null);
+  useEffect(() => {
+    if (timeframe.label !== '1D' || !symbol) return;
+    let cancelled = false;
+    setIntraday(null);
+    fetchIntradayCandles(symbol).then((r) => {
+      if (!cancelled) setIntraday(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [timeframe.label, symbol]);
+
   const [pinned, setPinned] = useState(false);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [modalMode, setModalMode] = useState<'log' | 'close' | null>(null);
@@ -81,18 +98,23 @@ export default function SymbolScreen() {
   const signalMeta = signal ? SIGNAL_META[signal] : null;
   const openTrade = trades.find((t) => t.symbol === symbol && t.status === 'open');
 
-  // The scan always analyzes a full 2-year history; the timeframe selector only
-  // controls how much of that the chart displays — so switching it is instant
-  // (no re-fetch, no re-scan) and never comes up empty for a short window.
-  // Channel lines stay unfiltered by the zoom window (they already only ever
-  // reflect a touch within the last ~60 trading days, and need to keep
-  // matching the exact numbers TradePlanCard shows below). The lighter
-  // "forming" levels are supplementary, so those do narrow to what's visible.
+  // The scan always analyzes a full 2-year daily history; "1W"/"1M" just
+  // control how much of that the chart displays, so switching between them
+  // is instant (no re-fetch, no re-scan) and never comes up empty for a
+  // short window. Channel lines stay unfiltered by the zoom window (they
+  // already only ever reflect a touch within the last ~60 trading days,
+  // and need to keep matching the exact numbers TradePlanCard shows below).
+  // The lighter "forming" levels are supplementary, so those do narrow to
+  // what's visible. "1D" is the odd one out — it swaps in real intraday
+  // candles (see the effect above) instead of slicing the daily history.
+  const isIntraday = timeframe.label === '1D';
   const sliceStart = Math.max(0, result.candles.length - timeframe.days);
-  const visibleCandles = result.candles.slice(sliceStart);
-  const visibleLevels = recentLevels(result.levels, result.candles.length).filter(
-    (l) => l.touches[l.touches.length - 1].index >= sliceStart
-  );
+  const visibleCandles = isIntraday ? intraday?.candles ?? [] : result.candles.slice(sliceStart);
+  const visibleLevels = isIntraday
+    ? recentLevels(result.levels, result.candles.length)
+    : recentLevels(result.levels, result.candles.length).filter(
+        (l) => l.touches[l.touches.length - 1].index >= sliceStart
+      );
 
   async function handlePin() {
     const next = await togglePin(symbol!);
@@ -167,7 +189,13 @@ export default function SymbolScreen() {
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <View style={styles.chartWrap}>
-        <ZoomableChart candles={visibleCandles} channels={result.channels} levels={visibleLevels} />
+        {isIntraday && !intraday ? (
+          <View style={styles.intradayLoading}>
+            <Text style={styles.intradayLoadingText}>Loading intraday data…</Text>
+          </View>
+        ) : (
+          <ZoomableChart candles={visibleCandles} channels={result.channels} levels={visibleLevels} />
+        )}
       </View>
 
       {result.channels.length > 0 ? (
@@ -314,6 +342,15 @@ const styles = StyleSheet.create({
   chartWrap: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+  },
+  intradayLoading: {
+    height: 320,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  intradayLoadingText: {
+    color: colors.textDim,
+    fontSize: 12,
   },
   spinnerWrap: {
     padding: 40,

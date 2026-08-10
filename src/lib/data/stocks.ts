@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import type { Candle } from '../types';
 import { fetchWithTimeout } from './fetchWithTimeout';
+import { trimAtSplitDiscontinuity } from './splitDetect';
 
 const YAHOO_HEADERS = {
   'User-Agent':
@@ -24,8 +25,8 @@ const YAHOO_HEADERS = {
  * response cached from just before one shows a share price several times
  * too high with nothing about it looking obviously wrong.
  */
-function candidateUrls(symbol: string, yahooRange: string): string[] {
-  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d&_=${Date.now()}`;
+function candidateUrls(symbol: string, yahooRange: string, interval: string): string[] {
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=${interval}&_=${Date.now()}`;
   if (Platform.OS !== 'web') return [target];
   return [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
@@ -60,11 +61,11 @@ function parseChartResponse(json: any): Candle[] {
   }
 
   if (candles.length === 0) throw new Error('No usable candles in Yahoo response');
-  return candles;
+  return trimAtSplitDiscontinuity(candles);
 }
 
-export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Promise<Candle[]> {
-  const urls = candidateUrls(symbol, yahooRange);
+export async function fetchStockCandles(symbol: string, yahooRange = '1y', interval = '1d'): Promise<Candle[]> {
+  const urls = candidateUrls(symbol, yahooRange, interval);
   let lastError: unknown;
 
   for (const url of urls) {

@@ -37,3 +37,31 @@ export async function fetchCandles(symbol: string): Promise<CandleFetchResult> {
 
   return { candles: generateDemoCandles(symbol, ANCHOR_DAYS), isLive: false };
 }
+
+// For the "1D" chart view — daily bars are meaningless at 1-day resolution
+// (literally one candle), so that view needs real intraday data instead of
+// a slice of the same daily history everything else uses. 5 days of hourly
+// bars is short enough to read as "today-ish" but long enough (~35-120
+// candles depending on market) for channel detection to actually find a
+// pivot, which needs at least 11 candles on either side of the lookback.
+const INTRADAY_HOURLY_LIMIT = 120;
+
+/** Fetches recent hourly candles for the 1D chart view — same fallback behavior as fetchCandles. */
+export async function fetchIntradayCandles(symbol: string): Promise<CandleFetchResult> {
+  const info = findSymbol(symbol);
+
+  try {
+    if (info?.kind === 'crypto' && info.binancePair) {
+      const candles = await fetchBinanceCandles(info.binancePair, INTRADAY_HOURLY_LIMIT, '1h');
+      return { candles, isLive: true };
+    }
+    if (info?.kind === 'stock') {
+      const candles = await fetchStockCandles(symbol, '5d', '60m');
+      return { candles, isLive: true };
+    }
+  } catch {
+    // fall through to demo data below
+  }
+
+  return { candles: generateDemoCandles(symbol, INTRADAY_HOURLY_LIMIT), isLive: false };
+}
