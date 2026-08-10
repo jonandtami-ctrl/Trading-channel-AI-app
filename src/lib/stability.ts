@@ -29,6 +29,8 @@ export function findStableChannel(candles: Candle[], channels: Channel[]): Stabi
   const trend = classifyTrend(findPivots(candles, 5));
   if (trend.direction !== 'sideways') return null;
 
+  const lastClose = candles[candles.length - 1].close;
+
   let best: Channel | null = null;
   for (const channel of channels) {
     if (channel.status !== 'active') continue;
@@ -38,6 +40,10 @@ export function findStableChannel(candles: Candle[], channels: Channel[]): Stabi
     if (channel.resistance.touches.length < MIN_TOUCHES_PER_SIDE) continue;
     const touchCount = channel.support.touches.length + channel.resistance.touches.length;
     if (touchCount < MIN_TOTAL_TOUCHES) continue;
+    // "active" allows price to sit up to 1% past support/resistance before
+    // flipping to "broken" (useful slack for a swing trade call, wrong here —
+    // a "stable range" is a claim that price is inside these numbers right now).
+    if (lastClose < channel.support.price || lastClose > channel.resistance.price) continue;
     if (!best || channel.containmentPct > best.containmentPct) best = channel;
   }
 

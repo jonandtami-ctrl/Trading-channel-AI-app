@@ -98,6 +98,17 @@ describe('findStableChannel', () => {
     expect(findStableChannel(candles, [channel])).toBeNull();
   });
 
+  it('returns null when price has already slipped outside the band, even if status is still "active"', () => {
+    // detectChannels allows price up to 1% past support/resistance before flipping
+    // to "broken" (useful slack for a swing-trade call) — but a "stable range" is a
+    // claim that price sits inside these numbers right now, so that slack shouldn't
+    // apply here.
+    const candles = triangleCandles(120, 97, 103);
+    candles[candles.length - 1] = { ...candles[candles.length - 1], close: 96.5 };
+    const channel = tightChannel(97, 103);
+    expect(findStableChannel(candles, [channel])).toBeNull();
+  });
+
   it('picks the most contained candidate when multiple channels qualify', () => {
     const candles = triangleCandles(120, 97, 103);
     const weaker = { ...tightChannel(96, 104), containmentPct: 80 };
