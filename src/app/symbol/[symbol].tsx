@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { fetchIntradayCandles } from '../../lib/data/fetch';
@@ -9,6 +9,7 @@ import type { Candle } from '../../lib/types';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
 import { recentLevels } from '../../lib/levels';
+import { tradingViewUrl } from '../../lib/tradingview';
 import { backtestChannel } from '../../lib/backtest';
 import { computeTradePlan } from '../../lib/tradePlan';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
@@ -196,6 +197,12 @@ export default function SymbolScreen() {
         ) : (
           <ZoomableChart candles={visibleCandles} channels={result.channels} levels={visibleLevels} />
         )}
+        {info && (
+          <Pressable style={styles.tvLink} onPress={() => Linking.openURL(tradingViewUrl(info))}>
+            <Text style={styles.tvLinkText}>Cross-check on TradingView</Text>
+            <Ionicons name="open-outline" size={12} color={colors.accent} />
+          </Pressable>
+        )}
       </View>
 
       {result.channels.length > 0 ? (
@@ -342,6 +349,19 @@ const styles = StyleSheet.create({
   chartWrap: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
+  },
+  tvLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+    paddingVertical: 6,
+  },
+  tvLinkText: {
+    color: colors.accent,
+    fontSize: 11,
+    fontWeight: '600',
   },
   intradayLoading: {
     height: 320,
