@@ -25,7 +25,7 @@ describe('symbol data', () => {
     expect(findSymbol('aapl')?.name).toBe('Apple Inc.');
     expect(findSymbol('aapl')?.exchange).toBe('Blue Chip');
     expect(findSymbol('tqqq')?.name).toContain('Nasdaq-100');
-    expect(findSymbol('hqu.to')?.exchange).toBe('TSX');
+    expect(findSymbol('qqu.to')?.exchange).toBe('TSX');
     expect(CRYPTO_SYMBOLS.length).toBe(50);
   });
 });
