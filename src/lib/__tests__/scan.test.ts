@@ -5,7 +5,7 @@ import type { Alert, Candle, Channel, Level, ScanResult } from '../types';
 
 function makeResult(alerts: Alert[], lastClose = 100, channels: Channel[] = []): ScanResult {
   const candles: Candle[] = [{ time: 0, open: lastClose, high: lastClose, low: lastClose, close: lastClose }];
-  return { symbol: 'TEST', candles, channels, alerts, isLive: true };
+  return { symbol: 'TEST', candles, channels, levels: [], alerts, isLive: true };
 }
 
 function alert(type: Alert['type'], levelPrice: number, strengthPct?: number): Alert {
@@ -85,7 +85,15 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
   }
 
   function resultWithPlan(plan: TradePlan): ScanResult {
-    return { symbol: 'TEST', candles: [], channels: [], alerts: [{ type: 'bounce_support', symbol: 'TEST', price: 100, levelPrice: 95, time: 0, message: '' }], isLive: true, tradePlan: plan };
+    return {
+      symbol: 'TEST',
+      candles: [],
+      channels: [],
+      levels: [],
+      alerts: [{ type: 'bounce_support', symbol: 'TEST', price: 100, levelPrice: 95, time: 0, message: '' }],
+      isLive: true,
+      tradePlan: plan,
+    };
   }
 
   it('only calls BUY when the plan is a confirmed/high-quality bounce off support — a raw bounce_support alert alone is not enough', () => {

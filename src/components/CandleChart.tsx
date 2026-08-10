@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { LayoutChangeEvent, View } from 'react-native';
 import Svg, { G, Line, Polygon, Rect, Text as SvgText } from 'react-native-svg';
-import type { Candle, Channel } from '../lib/types';
+import type { Candle, Channel, Level } from '../lib/types';
 import { colors } from '../constants/theme';
 
 const DEFAULT_HEIGHT = 320;
 const PADDING_Y = 16;
 const PADDING_RIGHT = 52;
+const LEVEL_MATCH_TOLERANCE = 0.005; // 0.5% — treat a level as "already drawn" by a channel line at this price
 
 export interface ChartMarker {
   index: number;
@@ -16,12 +17,15 @@ export interface ChartMarker {
 export function CandleChart({
   candles,
   channels,
+  levels,
   markers,
   revealCount,
   height = DEFAULT_HEIGHT,
 }: {
   candles: Candle[];
   channels: Channel[];
+  /** Support/resistance levels not already covered by a channel line — drawn thinner and muted, so you can see where a level is forming even without a full channel. */
+  levels?: Level[];
   markers?: ChartMarker[];
   revealCount?: number;
   height?: number;
@@ -40,11 +44,14 @@ export function CandleChart({
   const visibleCandles = candles.slice(0, visibleCount);
   const visibleMarkers = (markers ?? []).filter((m) => m.index < visibleCount);
 
+  const channelPrices = channels.flatMap((ch) => [ch.support.price, ch.resistance.price]);
+  const formingLevels = (levels ?? []).filter(
+    (level) => !channelPrices.some((p) => Math.abs(level.price - p) / p <= LEVEL_MATCH_TOLERANCE)
+  );
+
   const plotWidth = width - PADDING_RIGHT;
   const prices = candles.flatMap((c) => [c.high, c.low]);
-  for (const ch of channels) {
-    prices.push(ch.support.price, ch.resistance.price);
-  }
+  prices.push(...channelPrices, ...formingLevels.map((l) => l.price));
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const range = maxPrice - minPrice || 1;
@@ -92,6 +99,27 @@ export function CandleChart({
               />
               <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={supportColor}>
                 {formatAxisPrice(channel.support.price)}
+              </SvgText>
+            </G>
+          );
+        })}
+
+        {formingLevels.map((level, i) => {
+          const color = level.type === 'support' ? colors.green : colors.red;
+          return (
+            <G key={`forming-${i}`}>
+              <Line
+                x1={0}
+                x2={plotWidth}
+                y1={y(level.price)}
+                y2={y(level.price)}
+                stroke={color}
+                strokeWidth={1}
+                strokeOpacity={0.4}
+                strokeDasharray="2,4"
+              />
+              <SvgText x={plotWidth + 4} y={y(level.price) + 3} fontSize={8} fill={color} opacity={0.6}>
+                {formatAxisPrice(level.price)}
               </SvgText>
             </G>
           );

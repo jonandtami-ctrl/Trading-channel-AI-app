@@ -6,6 +6,7 @@ import { useScanner } from '../../hooks/useScanner';
 import { findSymbol } from '../../lib/data/symbols';
 import { formatPrice } from '../../lib/format';
 import { getSignal } from '../../lib/scan';
+import { recentLevels } from '../../lib/levels';
 import { backtestChannel } from '../../lib/backtest';
 import { computeTradePlan } from '../../lib/tradePlan';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
@@ -153,7 +154,11 @@ export default function SymbolScreen() {
       <TimeframeSelector selected={timeframe} onSelect={setTimeframe} />
 
       <View style={styles.chartWrap}>
-        <ZoomableChart candles={result.candles} channels={result.channels} />
+        <ZoomableChart
+          candles={result.candles}
+          channels={result.channels}
+          levels={recentLevels(result.levels, result.candles.length)}
+        />
       </View>
 
       {result.channels.length > 0 ? (

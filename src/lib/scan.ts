@@ -19,7 +19,7 @@ export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): 
   // going-nowhere range — so it looks at channels without the swing span cap.
   const longTermChannels = detectChannels(candles, levels, { maxSpanCandles: Infinity });
   const stability = findStableChannel(candles, longTermChannels);
-  return { symbol, candles, channels, alerts, isLive, tradePlan, stability };
+  return { symbol, candles, channels, levels, alerts, isLive, tradePlan, stability };
 }
 
 /** Urgency ranking used to sort the watchlist: breakouts first, then near a level, calm last. */

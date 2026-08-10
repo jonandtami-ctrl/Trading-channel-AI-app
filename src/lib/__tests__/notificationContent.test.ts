@@ -4,7 +4,7 @@ import type { Alert, Candle, Channel, ScanResult } from '../types';
 
 function makeResult(symbol: string, alerts: Alert[], channels: Channel[] = []): ScanResult {
   const candles: Candle[] = [{ time: 0, open: 100, high: 100, low: 100, close: 100 }];
-  return { symbol, candles, channels, alerts, isLive: true };
+  return { symbol, candles, channels, levels: [], alerts, isLive: true };
 }
 
 function alert(type: Alert['type'], levelPrice: number): Alert {

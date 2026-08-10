@@ -39,3 +39,23 @@ function buildClusters(pivots: Pivot[], type: Level['type'], tolerancePct: numbe
 function average(pivots: Pivot[]): number {
   return pivots.reduce((sum, p) => sum + p.price, 0) / pivots.length;
 }
+
+const RECENT_LEVEL_CANDLES = 60; // ~3 months of daily bars — matches the channel recency cutoff
+const MIN_LEVEL_TOUCHES = 2;
+const MAX_DISPLAY_LEVELS = 6;
+
+/**
+ * Every well-touched, recently-relevant support/resistance level — including
+ * ones that never paired into a fully-formed channel (only one side has
+ * enough touches yet, or the pair failed the width/containment checks).
+ * Used to show levels "forming" on a chart even when there's no qualifying
+ * channel to call a trade plan on.
+ */
+export function recentLevels(levels: Level[], totalCandles: number): Level[] {
+  const cutoff = Math.max(0, totalCandles - RECENT_LEVEL_CANDLES);
+  return levels
+    .filter((l) => l.touches.length >= MIN_LEVEL_TOUCHES)
+    .filter((l) => l.touches[l.touches.length - 1].index >= cutoff)
+    .sort((a, b) => b.touches.length - a.touches.length)
+    .slice(0, MAX_DISPLAY_LEVELS);
+}

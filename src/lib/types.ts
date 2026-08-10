@@ -59,6 +59,8 @@ export interface ScanResult {
   symbol: string;
   candles: Candle[];
   channels: Channel[];
+  /** Every support/resistance level found, not just ones paired into a qualifying channel. */
+  levels: Level[];
   alerts: Alert[];
   isLive: boolean;
   /** Best (highest-quality) trade plan across this symbol's channels, if any were found. */

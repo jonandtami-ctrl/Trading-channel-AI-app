@@ -11,7 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { Candle, Channel } from '../lib/types';
+import type { Candle, Channel, Level } from '../lib/types';
 import { CandleChart } from './CandleChart';
 import { colors, radius, spacing } from '../constants/theme';
 
@@ -30,7 +30,15 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-export function ZoomableChart({ candles, channels }: { candles: Candle[]; channels: Channel[] }) {
+export function ZoomableChart({
+  candles,
+  channels,
+  levels,
+}: {
+  candles: Candle[];
+  channels: Channel[];
+  levels?: Level[];
+}) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [zoom, setZoom] = useState(1);
   const scrollRef = useRef<ScrollView>(null);
@@ -78,19 +86,30 @@ export function ZoomableChart({ candles, channels }: { candles: Candle[]; channe
   const zoomed = zoom > MIN_ZOOM + 0.01;
 
   const hasActiveChannel = channels.some((c) => c.status === 'active');
+  const hasFormingLevels = (levels?.length ?? 0) > 0;
 
   return (
     <View onLayout={onLayout}>
-      {hasActiveChannel && (
+      {(hasActiveChannel || hasFormingLevels) && (
         <View style={styles.legend}>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
-            <Text style={styles.legendText}>Buy line (support)</Text>
-          </View>
-          <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: colors.red }]} />
-            <Text style={styles.legendText}>Sell line (resistance)</Text>
-          </View>
+          {hasActiveChannel && (
+            <>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
+                <Text style={styles.legendText}>Buy line (support)</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: colors.red }]} />
+                <Text style={styles.legendText}>Sell line (resistance)</Text>
+              </View>
+            </>
+          )}
+          {hasFormingLevels && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, styles.legendDotFaint]} />
+              <Text style={styles.legendText}>Level forming</Text>
+            </View>
+          )}
         </View>
       )}
       <View {...panResponder.panHandlers}>
@@ -102,7 +121,7 @@ export function ZoomableChart({ candles, channels }: { candles: Candle[]; channe
           bounces={zoomed}
         >
           <View style={{ width: chartWidth || containerWidth }}>
-            {containerWidth > 0 && <CandleChart candles={candles} channels={channels} />}
+            {containerWidth > 0 && <CandleChart candles={candles} channels={channels} levels={levels} />}
           </View>
         </ScrollView>
       </View>
@@ -142,6 +161,10 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
+  },
+  legendDotFaint: {
+    backgroundColor: colors.textDim,
+    opacity: 0.6,
   },
   legendText: {
     color: colors.textDim,
