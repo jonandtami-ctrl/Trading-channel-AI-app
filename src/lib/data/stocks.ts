@@ -16,9 +16,16 @@ const YAHOO_HEADERS = {
  * GitHub Pages site) this tries a couple of public CORS-forwarding proxies
  * in turn before falling back to demo data — free proxies come and go, so
  * relying on a single one isn't reliable enough on its own.
+ *
+ * The cache-buster on the target URL matters more than it looks: public
+ * CORS proxies commonly cache responses by URL to cut their own origin
+ * load, and a stale cached copy can badly mislead a leveraged/inverse ETF
+ * price specifically — those funds do occasional reverse splits, and a
+ * response cached from just before one shows a share price several times
+ * too high with nothing about it looking obviously wrong.
  */
 function candidateUrls(symbol: string, yahooRange: string): string[] {
-  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d`;
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d&_=${Date.now()}`;
   if (Platform.OS !== 'web') return [target];
   return [
     `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
@@ -62,7 +69,7 @@ export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Prom
 
   for (const url of urls) {
     try {
-      const res = await fetchWithTimeout(url, { headers: YAHOO_HEADERS }, 7000);
+      const res = await fetchWithTimeout(url, { headers: YAHOO_HEADERS, cache: 'no-store' }, 7000);
       if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
       return parseChartResponse(await res.json());
     } catch (err) {
