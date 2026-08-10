@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { Candle } from '../types';
 import { fetchWithRetry } from './fetchWithTimeout';
 
@@ -9,13 +10,19 @@ const YAHOO_HEADERS = {
 };
 
 /**
- * Native apps aren't subject to browser CORS restrictions, so we can call
- * Yahoo Finance's chart endpoint directly — no proxy needed. A realistic
- * browser-style User-Agent + Accept headers make Yahoo's basic bot
- * heuristics far less likely to reject the request outright.
+ * Yahoo's chart endpoint doesn't send CORS headers, so a browser blocks the
+ * response outright before JS ever sees it — only native apps (not subject
+ * to browser CORS enforcement) can call it directly. The web build (the
+ * deployed GitHub Pages site) routes through a public CORS-forwarding proxy
+ * instead, or every stock/ETF fetch would silently fail over to demo data.
  */
+function chartUrl(symbol: string, yahooRange: string): string {
+  const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d`;
+  return Platform.OS === 'web' ? `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}` : target;
+}
+
 export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Promise<Candle[]> {
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d`;
+  const url = chartUrl(symbol, yahooRange);
   const res = await fetchWithRetry(url, { headers: YAHOO_HEADERS });
   if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
 
