@@ -5,6 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { groupTradesByYear, realizedPnl, realizedPnlPct, type Trade } from '../../lib/journal';
 import { loadTrades, deleteTrade, shareTradesCsv } from '../../lib/journalStorage';
 import { formatPrice } from '../../lib/format';
+import { findSymbol } from '../../lib/data/symbols';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
 export default function JournalScreen() {
@@ -73,7 +74,7 @@ export default function JournalScreen() {
               <View style={styles.yearHeaderRight}>
                 <Text style={[styles.yearTotal, { color: realizedTotal >= 0 ? colors.green : colors.red }]}>
                   {realizedTotal >= 0 ? '+' : ''}
-                  {formatPrice(realizedTotal)} realized
+                  {formatPrice(realizedTotal, 'stock')} realized
                 </Text>
                 <Pressable style={styles.yearExportRow} onPress={() => shareTradesCsv(yearTrades, String(year))}>
                   <Ionicons name="download-outline" size={11} color={colors.textDim} />
@@ -85,6 +86,7 @@ export default function JournalScreen() {
             {yearTrades.map((trade) => {
               const pnl = realizedPnl(trade);
               const pnlPct = realizedPnlPct(trade);
+              const kind = findSymbol(trade.symbol)?.kind === 'stock' ? 'stock' : 'crypto';
               return (
                 <Pressable key={trade.id} style={styles.card} onLongPress={() => handleDelete(trade.id)}>
                   <View style={styles.cardTop}>
@@ -106,17 +108,17 @@ export default function JournalScreen() {
                     </View>
                   </View>
                   <Text style={styles.detail}>
-                    Entry {formatPrice(trade.entryPrice)} × {trade.quantity} · {formatDate(trade.entryDate)}
+                    Entry {formatPrice(trade.entryPrice, kind)} × {trade.quantity} · {formatDate(trade.entryDate)}
                   </Text>
                   {trade.status === 'closed' && trade.exitPrice != null && (
                     <Text style={styles.detail}>
-                      Exit {formatPrice(trade.exitPrice)} · {formatDate(trade.exitDate!)}
+                      Exit {formatPrice(trade.exitPrice, kind)} · {formatDate(trade.exitDate!)}
                     </Text>
                   )}
                   {pnl != null && pnlPct != null && (
                     <Text style={[styles.pnl, { color: pnl >= 0 ? colors.green : colors.red }]}>
                       {pnl >= 0 ? '+' : ''}
-                      {formatPrice(pnl)} ({pnlPct >= 0 ? '+' : ''}
+                      {formatPrice(pnl, 'stock')} ({pnlPct >= 0 ? '+' : ''}
                       {pnlPct.toFixed(1)}%)
                     </Text>
                   )}

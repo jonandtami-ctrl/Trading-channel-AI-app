@@ -4,7 +4,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { ScanResult } from '../lib/types';
 import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
+import { findSymbol } from '../lib/data/symbols';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
+
+function priceOf(result: ScanResult): string {
+  const last = result.candles[result.candles.length - 1];
+  if (!last) return '—';
+  return formatPrice(last.close, findSymbol(result.symbol)?.kind === 'stock' ? 'stock' : 'crypto');
+}
 
 const RISK_COLOR = { low: colors.green, medium: colors.amber, high: colors.red } as const;
 const STRENGTH_LABEL = { high: 'High', medium: 'Med', low: 'Low' } as const;
@@ -70,7 +77,6 @@ export function Watchlist({
     return (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
         {results.map((result) => {
-          const last = result.candles[result.candles.length - 1];
           const pill = signalPill(result);
           return (
             <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
@@ -83,7 +89,7 @@ export function Watchlist({
                   {names[result.symbol] ?? ''}
                 </Text>
                 <View style={styles.hBottomRow}>
-                  <Text style={styles.hPrice}>{last ? formatPrice(last.close) : '—'}</Text>
+                  <Text style={styles.hPrice}>{priceOf(result)}</Text>
                   <Text style={[styles.hPillText, { color: pill.color }]} numberOfLines={1}>
                     {pill.label}
                   </Text>
@@ -99,7 +105,6 @@ export function Watchlist({
   return (
     <View>
       {results.map((result) => {
-        const last = result.candles[result.candles.length - 1];
         const pill = signalPill(result);
         const detail = getSignalDetail(result);
         return (
@@ -113,7 +118,7 @@ export function Watchlist({
                 </Text>
               </View>
               <View style={styles.right}>
-                <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+                <Text style={styles.price}>{priceOf(result)}</Text>
                 <View style={[styles.pill, { backgroundColor: pill.bg }]}>
                   <Ionicons name={pill.icon} size={11} color={pill.color} />
                   <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>

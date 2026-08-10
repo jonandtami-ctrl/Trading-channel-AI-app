@@ -18,6 +18,7 @@ import { Disclaimer } from '../../components/Disclaimer';
 import { ZoomableChart } from '../../components/ZoomableChart';
 import { BacktestPlayer } from '../../components/BacktestPlayer';
 import { TradePlanCard } from '../../components/TradePlanCard';
+import { CurrentTrend } from '../../components/CurrentTrend';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
@@ -37,6 +38,7 @@ export default function SymbolScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const navigation = useNavigation();
   const info = symbol ? findSymbol(symbol) : undefined;
+  const priceKind = info?.kind === 'stock' ? 'stock' : 'crypto';
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS, timeframe);
   const result = symbol ? results[symbol] : undefined;
@@ -106,13 +108,13 @@ export default function SymbolScreen() {
           <View style={styles.stableBadge}>
             <Ionicons name="shield-checkmark-outline" size={12} color={colors.green} />
             <Text style={styles.stableBadgeText}>
-              Stable range · {formatPrice(result.stability.support)}–{formatPrice(result.stability.resistance)} · ±
+              Stable range · {formatPrice(result.stability.support, priceKind)}–{formatPrice(result.stability.resistance, priceKind)} · ±
               {(result.stability.widthPct / 2).toFixed(1)}%
             </Text>
           </View>
         )}
         <View style={styles.priceRow}>
-          <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+          <Text style={styles.price}>{last ? formatPrice(last.close, priceKind) : '—'}</Text>
           {signalMeta && (
             <View style={[styles.signalPill, { backgroundColor: `${signalMeta.color}26` }]}>
               <Text style={[styles.signalText, { color: signalMeta.color }]}>{signalMeta.label}</Text>
@@ -141,9 +143,9 @@ export default function SymbolScreen() {
 
         {openTrade && last && (
           <Text style={styles.openTradeText}>
-            Open: {openTrade.quantity} @ {formatPrice(openTrade.entryPrice)} · unrealized{' '}
+            Open: {openTrade.quantity} @ {formatPrice(openTrade.entryPrice, priceKind)} · unrealized{' '}
             {unrealizedPnl(openTrade, last.close) >= 0 ? '+' : ''}
-            {formatPrice(unrealizedPnl(openTrade, last.close))}
+            {formatPrice(unrealizedPnl(openTrade, last.close), priceKind)}
           </Text>
         )}
       </View>
@@ -169,9 +171,7 @@ export default function SymbolScreen() {
           );
         })
       ) : (
-        <View style={styles.spinnerWrap}>
-          <Text style={styles.spinnerText}>No active channel — price isn&apos;t currently consolidating.</Text>
-        </View>
+        <CurrentTrend candles={result.candles} />
       )}
 
       <SectionHeader title="Alerts" color={colors.blue} />

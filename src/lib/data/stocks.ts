@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import type { Candle } from '../types';
-import { fetchWithRetry } from './fetchWithTimeout';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 const YAHOO_HEADERS = {
   'User-Agent':
@@ -11,22 +11,23 @@ const YAHOO_HEADERS = {
 
 /**
  * Yahoo's chart endpoint doesn't send CORS headers, so a browser blocks the
- * response outright before JS ever sees it — only native apps (not subject
- * to browser CORS enforcement) can call it directly. The web build (the
- * deployed GitHub Pages site) routes through a public CORS-forwarding proxy
- * instead, or every stock/ETF fetch would silently fail over to demo data.
+ * response outright before JS ever sees it — only a native app (not subject
+ * to browser CORS enforcement) can call it directly. On web (the deployed
+ * GitHub Pages site) this tries a couple of public CORS-forwarding proxies
+ * in turn before falling back to demo data — free proxies come and go, so
+ * relying on a single one isn't reliable enough on its own.
  */
-function chartUrl(symbol: string, yahooRange: string): string {
+function candidateUrls(symbol: string, yahooRange: string): string[] {
   const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=1d`;
-  return Platform.OS === 'web' ? `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}` : target;
+  if (Platform.OS !== 'web') return [target];
+  return [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+  ];
 }
 
-export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Promise<Candle[]> {
-  const url = chartUrl(symbol, yahooRange);
-  const res = await fetchWithRetry(url, { headers: YAHOO_HEADERS });
-  if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
-
-  const json = await res.json();
+function parseChartResponse(json: any): Candle[] {
   const result = json?.chart?.result?.[0];
   if (!result) throw new Error('Unexpected Yahoo response shape');
 
@@ -53,4 +54,21 @@ export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Prom
 
   if (candles.length === 0) throw new Error('No usable candles in Yahoo response');
   return candles;
+}
+
+export async function fetchStockCandles(symbol: string, yahooRange = '1y'): Promise<Candle[]> {
+  const urls = candidateUrls(symbol, yahooRange);
+  let lastError: unknown;
+
+  for (const url of urls) {
+    try {
+      const res = await fetchWithTimeout(url, { headers: YAHOO_HEADERS }, 7000);
+      if (!res.ok) throw new Error(`Yahoo request failed: ${res.status}`);
+      return parseChartResponse(await res.json());
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError ?? new Error('All chart data sources failed');
 }

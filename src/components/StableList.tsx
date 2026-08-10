@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ScanResult } from '../lib/types';
 import { formatPrice } from '../lib/format';
+import { findSymbol } from '../lib/data/symbols';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
 
 /** A dedicated list for the "stable / going nowhere" category — these aren't buy/sell calls, so it shows the range itself instead of a signal pill. */
@@ -26,6 +27,7 @@ export function StableList({ results, names }: { results: ScanResult[]; names: R
         const last = result.candles[result.candles.length - 1];
         const info = result.stability;
         if (!info) return null;
+        const kind = findSymbol(result.symbol)?.kind === 'stock' ? 'stock' : 'crypto';
         return (
           <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
             <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
@@ -36,12 +38,12 @@ export function StableList({ results, names }: { results: ScanResult[]; names: R
                   {names[result.symbol] ?? ''}
                 </Text>
                 <Text style={styles.range}>
-                  Range {formatPrice(info.support)}–{formatPrice(info.resistance)} · ±{(info.widthPct / 2).toFixed(1)}%
-                  · {info.touchCount} touches
+                  Range {formatPrice(info.support, kind)}–{formatPrice(info.resistance, kind)} · ±
+                  {(info.widthPct / 2).toFixed(1)}% · {info.touchCount} touches
                 </Text>
               </View>
               <View style={styles.right}>
-                <Text style={styles.price}>{last ? formatPrice(last.close) : '—'}</Text>
+                <Text style={styles.price}>{last ? formatPrice(last.close, kind) : '—'}</Text>
                 <View style={styles.pill}>
                   <Ionicons name="shield-checkmark-outline" size={11} color={colors.green} />
                   <Text style={styles.pillText}>Stable range</Text>

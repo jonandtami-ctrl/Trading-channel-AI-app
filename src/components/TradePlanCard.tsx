@@ -4,6 +4,7 @@ import type { TradePlan } from '../lib/tradePlan';
 import { calculatePositionSize } from '../lib/positionSize';
 import type { TradeSettings } from '../lib/tradeSettingsStorage';
 import { formatPrice } from '../lib/format';
+import { findSymbol } from '../lib/data/symbols';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
 
 const STATUS_COLOR: Record<string, string> = {
@@ -32,6 +33,8 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
   const statusColor = STATUS_COLOR[plan.finalStatusLabel.slice(0, 2).trim()] ?? colors.textDim;
   const position =
     plan.stopLoss != null ? calculatePositionSize(tradeSettings.accountSize, tradeSettings.riskPct, plan.currentPrice, plan.stopLoss) : null;
+  const priceKind = findSymbol(plan.symbol)?.kind === 'stock' ? 'stock' : 'crypto';
+  const price = (n: number) => formatPrice(n, priceKind);
 
   return (
     <View style={styles.card}>
@@ -52,14 +55,14 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
       </View>
 
       <View style={styles.grid}>
-        <Cell label="Support" value={formatPrice(plan.support)} />
-        <Cell label="Resistance" value={formatPrice(plan.resistance)} />
+        <Cell label="Support" value={price(plan.support)} />
+        <Cell label="Resistance" value={price(plan.resistance)} />
         <Cell label="Setup type" value={plan.setupType} />
         <Cell label="Last touched" value={touchRecencyLabel(plan.lastTouchDaysAgo)} />
         {plan.entryQuality && <Cell label="Entry quality" value={ENTRY_QUALITY_LABEL[plan.entryQuality]} />}
         <Cell label="Volume" value={`${VOLUME_LABEL[plan.volumeLevel]} (${plan.volumeRatio.toFixed(1)}×)`} />
         {plan.entryZoneLow != null && plan.entryZoneHigh != null && (
-          <Cell label="Entry zone" value={`${formatPrice(plan.entryZoneLow)} – ${formatPrice(plan.entryZoneHigh)}`} wide />
+          <Cell label="Entry zone" value={`${price(plan.entryZoneLow)} – ${price(plan.entryZoneHigh)}`} wide />
         )}
       </View>
 
@@ -73,9 +76,9 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
       {plan.stopLoss != null && plan.target1 != null && (
         <View style={styles.planBox}>
           <View style={styles.planRow}>
-            <PlanFigure label="Stop" value={formatPrice(plan.stopLoss)} sub={`${plan.stopPct?.toFixed(1)}%`} color={colors.red} />
-            <PlanFigure label="Target 1" value={formatPrice(plan.target1)} sub={`+${plan.potentialGainPct?.toFixed(1)}%`} color={colors.green} />
-            {plan.target2 != null && <PlanFigure label="Target 2" value={formatPrice(plan.target2)} color={colors.green} />}
+            <PlanFigure label="Stop" value={price(plan.stopLoss)} sub={`${plan.stopPct?.toFixed(1)}%`} color={colors.red} />
+            <PlanFigure label="Target 1" value={price(plan.target1)} sub={`+${plan.potentialGainPct?.toFixed(1)}%`} color={colors.green} />
+            {plan.target2 != null && <PlanFigure label="Target 2" value={price(plan.target2)} color={colors.green} />}
           </View>
           {(plan.riskRewardRatio != null || position) && (
             <Text style={styles.positionText}>
