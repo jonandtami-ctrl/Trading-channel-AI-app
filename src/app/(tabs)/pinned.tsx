@@ -9,7 +9,10 @@ import { loadTrades } from '../../lib/journalStorage';
 import { Watchlist } from '../../components/Watchlist';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
-const REFRESH_MS = 60 * 1000;
+// Pinned stock symbols each cost a Twelve Data credit per refresh (see
+// ScanDataProvider) — 60s was fine for Binance-only crypto, but the same
+// cadence for stocks left open all day could add up, so this is slower.
+const REFRESH_MS = 5 * 60 * 1000;
 const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function PinnedScreen() {

@@ -1,7 +1,8 @@
 import type { Candle } from '../types';
-import { findSymbol } from './symbols';
+import { findSymbol, type SymbolInfo } from './symbols';
 import { fetchBinanceCandles } from './binance';
 import { fetchStockCandles } from './stocks';
+import { fetchTwelveDataDaily, fetchTwelveDataDailyBatch, fetchTwelveDataIntraday } from './twelvedata';
 import { generateDemoCandles } from './demo';
 
 export interface CandleFetchResult {
@@ -18,24 +19,77 @@ export interface CandleFetchResult {
 const ANCHOR_DAYS = 730;
 const ANCHOR_YAHOO_RANGE = '2y';
 
-/** Fetches live data for a symbol, falling back to demo data on any failure — never throws. */
+/**
+ * Fetches live data for a symbol, falling back to demo data on any failure
+ * — never throws. Stocks/ETFs try Twelve Data first (the accurate,
+ * purpose-built source) and only fall back to the Yahoo-proxy chain if it's
+ * unconfigured, rate-limited, or errors out.
+ */
 export async function fetchCandles(symbol: string): Promise<CandleFetchResult> {
   const info = findSymbol(symbol);
 
-  try {
-    if (info?.kind === 'crypto' && info.binancePair) {
+  if (info?.kind === 'crypto' && info.binancePair) {
+    try {
       const candles = await fetchBinanceCandles(info.binancePair, Math.min(ANCHOR_DAYS, 1000));
       return { candles, isLive: true };
+    } catch {
+      return { candles: generateDemoCandles(symbol, ANCHOR_DAYS), isLive: false };
     }
-    if (info?.kind === 'stock') {
+  }
+
+  if (info?.kind === 'stock') {
+    try {
+      const candles = await fetchTwelveDataDaily(info);
+      return { candles, isLive: true };
+    } catch {
+      // Twelve Data unavailable/unconfigured/budget exhausted — fall back to the Yahoo-proxy chain.
+    }
+    try {
       const candles = await fetchStockCandles(symbol, ANCHOR_YAHOO_RANGE);
       return { candles, isLive: true };
+    } catch {
+      // fall through to demo data below
     }
-  } catch {
-    // fall through to demo data below
   }
 
   return { candles: generateDemoCandles(symbol, ANCHOR_DAYS), isLive: false };
+}
+
+/**
+ * Batch-fetches daily candles for many stock symbols in as few Twelve Data
+ * calls as possible, then fills in any symbol Twelve Data didn't return —
+ * whether the whole call failed or just that one symbol did — with the
+ * same per-symbol fallback chain fetchCandles uses. The scanner uses this
+ * instead of calling fetchCandles once per symbol, since 100+ sequential
+ * Twelve Data requests would blow through its 8-requests/minute free-tier
+ * limit almost instantly.
+ */
+export async function fetchStockBatch(infos: SymbolInfo[]): Promise<Record<string, CandleFetchResult>> {
+  const result: Record<string, CandleFetchResult> = {};
+
+  let batch: Record<string, Candle[]> = {};
+  try {
+    batch = await fetchTwelveDataDailyBatch(infos);
+  } catch {
+    // whole batch failed (unconfigured, network, budget exhausted) — every symbol falls through below
+  }
+
+  const missing = infos.filter((info) => {
+    const candles = batch[info.symbol];
+    if (candles?.length) {
+      result[info.symbol] = { candles, isLive: true };
+      return false;
+    }
+    return true;
+  });
+
+  await Promise.all(
+    missing.map(async (info) => {
+      result[info.symbol] = await fetchCandles(info.symbol);
+    })
+  );
+
+  return result;
 }
 
 // For the "1D" chart view — daily bars are meaningless at 1-day resolution
@@ -50,17 +104,28 @@ const INTRADAY_HOURLY_LIMIT = 120;
 export async function fetchIntradayCandles(symbol: string): Promise<CandleFetchResult> {
   const info = findSymbol(symbol);
 
-  try {
-    if (info?.kind === 'crypto' && info.binancePair) {
+  if (info?.kind === 'crypto' && info.binancePair) {
+    try {
       const candles = await fetchBinanceCandles(info.binancePair, INTRADAY_HOURLY_LIMIT, '1h');
       return { candles, isLive: true };
+    } catch {
+      return { candles: generateDemoCandles(symbol, INTRADAY_HOURLY_LIMIT), isLive: false };
     }
-    if (info?.kind === 'stock') {
+  }
+
+  if (info?.kind === 'stock') {
+    try {
+      const candles = await fetchTwelveDataIntraday(info, INTRADAY_HOURLY_LIMIT);
+      return { candles, isLive: true };
+    } catch {
+      // fall through to Yahoo
+    }
+    try {
       const candles = await fetchStockCandles(symbol, '5d', '60m');
       return { candles, isLive: true };
+    } catch {
+      // fall through to demo data below
     }
-  } catch {
-    // fall through to demo data below
   }
 
   return { candles: generateDemoCandles(symbol, INTRADAY_HOURLY_LIMIT), isLive: false };

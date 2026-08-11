@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { fetchCandles } from '../lib/data/fetch';
+import { fetchCandles, fetchStockBatch } from '../lib/data/fetch';
 import { scanSymbol } from '../lib/scan';
 import type { ScanResult } from '../lib/types';
 import type { SymbolInfo } from '../lib/data/symbols';
@@ -20,15 +20,17 @@ function sleep(ms: number) {
 }
 
 /**
- * Scans symbols in small concurrency-limited batches instead of firing
- * hundreds of requests at once — kinder to Yahoo's unofficial endpoint
- * (less likely to get rate-limited) and lets the UI fill in results as
- * they arrive instead of blocking on the whole universe.
+ * Stocks/ETFs are fetched in one Twelve Data batch call (see
+ * fetchStockBatch) instead of per-symbol, since Twelve Data's free tier
+ * only allows 8 requests/minute — a couple hundred sequential requests
+ * would get mostly rate-limited. Crypto still fetches in small
+ * concurrency-limited batches directly against Binance, which has no such
+ * limit and lets the UI fill in results as they arrive.
  *
- * refreshMs lets callers pick their own cadence — crypto (3 symbols,
- * cheap to refetch) can refresh far more often than a full stock/ETF scan
- * without hammering anything. fetchCandles always analyzes a fixed,
- * generous history regardless of what a chart happens to be displaying.
+ * refreshMs lets callers pick their own cadence — crypto (cheap to refetch)
+ * can refresh far more often than a full stock/ETF scan without hammering
+ * anything. fetchCandles/fetchStockBatch always analyze a fixed, generous
+ * history regardless of what a chart happens to be displaying.
  */
 export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS): ScannerState {
   const [results, setResults] = useState<Record<string, ScanResult>>({});
@@ -46,9 +48,23 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
       resultsRef.current = {};
       setResults({});
 
-      for (let i = 0; i < symbols.length; i += BATCH_SIZE) {
+      const stockSymbols = symbols.filter((s) => s.kind === 'stock');
+      const cryptoSymbols = symbols.filter((s) => s.kind !== 'stock');
+
+      if (stockSymbols.length) {
+        const batch = await fetchStockBatch(stockSymbols);
         if (cancelled) return;
-        const batch = symbols.slice(i, i + BATCH_SIZE);
+        for (const info of stockSymbols) {
+          const { candles, isLive } = batch[info.symbol];
+          resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
+        }
+        setResults({ ...resultsRef.current });
+        setScanned(stockSymbols.length);
+      }
+
+      for (let i = 0; i < cryptoSymbols.length; i += BATCH_SIZE) {
+        if (cancelled) return;
+        const batch = cryptoSymbols.slice(i, i + BATCH_SIZE);
 
         await Promise.all(
           batch.map(async (info) => {
@@ -63,9 +79,9 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
 
         if (cancelled) return;
         setResults({ ...resultsRef.current });
-        setScanned(Math.min(i + BATCH_SIZE, symbols.length));
+        setScanned(stockSymbols.length + Math.min(i + BATCH_SIZE, cryptoSymbols.length));
 
-        if (i + BATCH_SIZE < symbols.length) await sleep(BATCH_DELAY_MS);
+        if (i + BATCH_SIZE < cryptoSymbols.length) await sleep(BATCH_DELAY_MS);
       }
 
       if (!cancelled) setLoading(false);

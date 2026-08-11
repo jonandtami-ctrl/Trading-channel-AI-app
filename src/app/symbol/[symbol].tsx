@@ -29,7 +29,11 @@ import { TimeframeSelector } from '../../components/TimeframeSelector';
 import { TradeModal } from '../../components/TradeModal';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
-const DETAIL_REFRESH_MS = 60 * 1000;
+// A single symbol only costs 1 Twelve Data credit per refresh, so this can
+// stay fairly fast, but leaving a detail screen open all day at 60s would
+// still add up (1,440 credits) — 2 minutes keeps it feeling live without
+// eating into the shared daily budget the dashboard scan also draws from.
+const DETAIL_REFRESH_MS = 2 * 60 * 1000;
 
 const SIGNAL_META: Record<string, { label: string; color: string }> = {
   buy: { label: 'BUY', color: colors.green },
