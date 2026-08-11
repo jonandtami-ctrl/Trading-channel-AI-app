@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
-import { bySignal } from '../../lib/scan';
+import { bySignal, mostReliableChannels } from '../../lib/scan';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
@@ -72,6 +72,12 @@ export default function DashboardScreen() {
     })
     .sort((a, b) => (b.tradePlan?.qualityScore ?? 0) - (a.tradePlan?.qualityScore ?? 0))
     .slice(0, TOP_PICKS_CAP);
+
+  // Not "what's actionable right now" like Best Buys, but "what's proven
+  // itself" — symbols whose channel has bounced back and forth enough
+  // times to trust the pattern, regardless of where price sits in it today.
+  const reliablePool = [...cryptoResults, ...stockResults, ...canadaResults, ...etfResults];
+  const mostReliable = mostReliableChannels(reliablePool, TOP_PICKS_CAP);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -162,6 +168,14 @@ export default function DashboardScreen() {
 
           <SectionHeader title="Best Buys Under $100" count={bestBuys.length} color={colors.text} icon="star" />
           <Watchlist results={bestBuys} names={names} horizontal />
+
+          <SectionHeader
+            title="Most Reliable Channels"
+            count={mostReliable.length}
+            color={colors.text}
+            icon="repeat"
+          />
+          <Watchlist results={mostReliable} names={names} horizontal />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { getSignal, closestLevelDistance, classifyStrength, assessRisk, getSignalDetail } from '../scan';
+import {
+  getSignal,
+  closestLevelDistance,
+  classifyStrength,
+  assessRisk,
+  getSignalDetail,
+  channelReliabilityScore,
+  mostReliableChannels,
+} from '../scan';
 import type { TradePlan } from '../tradePlan';
-import type { Alert, Candle, Channel, Level, ScanResult } from '../types';
+import type { Alert, Candle, Channel, Level, Pivot, ScanResult } from '../types';
 
 function makeResult(alerts: Alert[], lastClose = 100, channels: Channel[] = []): ScanResult {
   const candles: Candle[] = [{ time: 0, open: lastClose, high: lastClose, low: lastClose, close: lastClose }];
@@ -12,15 +20,27 @@ function alert(type: Alert['type'], levelPrice: number, strengthPct?: number): A
   return { symbol: 'TEST', type, price: 100, levelPrice, time: 0, message: '', strengthPct };
 }
 
-function makeChannel(supportPrice: number, resistancePrice: number): Channel {
-  const support: Level = { price: supportPrice, type: 'support', touches: [] };
-  const resistance: Level = { price: resistancePrice, type: 'resistance', touches: [] };
+function makeTouches(count: number): Pivot[] {
+  return Array.from({ length: count }, (_, i) => ({ index: i, time: i, price: 100, type: 'low' as const }));
+}
+
+function makeChannel(
+  supportPrice: number,
+  resistancePrice: number,
+  opts: { status?: Channel['status']; supportTouches?: number; resistanceTouches?: number; containmentPct?: number } = {}
+): Channel {
+  const support: Level = { price: supportPrice, type: 'support', touches: makeTouches(opts.supportTouches ?? 0) };
+  const resistance: Level = {
+    price: resistancePrice,
+    type: 'resistance',
+    touches: makeTouches(opts.resistanceTouches ?? 0),
+  };
   return {
     support,
     resistance,
     widthPct: ((resistancePrice - supportPrice) / supportPrice) * 100,
-    containmentPct: 90,
-    status: 'active',
+    containmentPct: opts.containmentPct ?? 90,
+    status: opts.status ?? 'active',
     lastTouchIndex: 0,
   };
 }
@@ -180,5 +200,56 @@ describe('getSignalDetail', () => {
     expect(detail.signal).toBeNull();
     expect(detail.strengthPct).toBeNull();
     expect(detail.risk).toBeNull();
+  });
+});
+
+describe('channelReliabilityScore', () => {
+  it('sums support + resistance touches on the best (first) channel', () => {
+    const channel = makeChannel(90, 110, { supportTouches: 3, resistanceTouches: 4 });
+    expect(channelReliabilityScore(makeResult([], 100, [channel]))).toBe(7);
+  });
+
+  it('returns 0 when there is no channel at all', () => {
+    expect(channelReliabilityScore(makeResult([]))).toBe(0);
+  });
+});
+
+describe('mostReliableChannels', () => {
+  it('keeps only active channels with more than the bare-minimum touch count, sorted most-touched first', () => {
+    const wellTouched = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 4, resistanceTouches: 4 })]);
+    wellTouched.symbol = 'WELL';
+    const barelyQualified = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 2, resistanceTouches: 2 })]);
+    barelyQualified.symbol = 'BARE';
+    const mostTouched = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 6, resistanceTouches: 5 })]);
+    mostTouched.symbol = 'MOST';
+
+    const ranked = mostReliableChannels([wellTouched, barelyQualified, mostTouched]);
+    expect(ranked.map((r) => r.symbol)).toEqual(['MOST', 'WELL']);
+  });
+
+  it('excludes broken channels even if well-touched', () => {
+    const broken = makeResult([], 100, [
+      makeChannel(90, 110, { supportTouches: 5, resistanceTouches: 5, status: 'broken' }),
+    ]);
+    expect(mostReliableChannels([broken])).toEqual([]);
+  });
+
+  it('breaks ties by containment percentage', () => {
+    const tighter = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 3, resistanceTouches: 3, containmentPct: 95 })]);
+    tighter.symbol = 'TIGHT';
+    const looser = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 3, resistanceTouches: 3, containmentPct: 85 })]);
+    looser.symbol = 'LOOSE';
+
+    const ranked = mostReliableChannels([looser, tighter]);
+    expect(ranked.map((r) => r.symbol)).toEqual(['TIGHT', 'LOOSE']);
+  });
+
+  it('respects the cap', () => {
+    const results = ['A', 'B', 'C'].map((sym) => {
+      const r = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 4, resistanceTouches: 4 })]);
+      r.symbol = sym;
+      return r;
+    });
+    expect(mostReliableChannels(results, 2)).toHaveLength(2);
   });
 });

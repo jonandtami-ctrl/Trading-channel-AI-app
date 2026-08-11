@@ -128,6 +128,41 @@ export interface SignalDetail {
 const BUY_TYPES: Alert['type'][] = ['bounce_support'];
 const SELL_TYPES: Alert['type'][] = ['breakdown', 'bounce_resistance'];
 
+/**
+ * How many times price has touched a symbol's best channel (support +
+ * resistance touches combined) — a rough "how consistently is this
+ * bouncing" measure. channels[0] is already detectChannels' pick for
+ * tightest/most-contained, so this scores that one rather than picking
+ * favorably among all candidates.
+ */
+export function channelReliabilityScore(result: ScanResult): number {
+  const channel = result.channels[0];
+  if (!channel) return 0;
+  return channel.support.touches.length + channel.resistance.touches.length;
+}
+
+// detectChannels only requires 2 touches per side to qualify a channel at
+// all — "consistently hitting" should mean well past that bare minimum,
+// not just barely qualified.
+const MIN_RELIABLE_TOUCHES = 5;
+
+/**
+ * Symbols whose best channel is still active (not broken out) and has
+ * bounced back and forth enough times to trust the pattern rather than a
+ * channel that only just formed. Sorted most-touched first, ties broken by
+ * containment (how cleanly price has stayed inside the band).
+ */
+export function mostReliableChannels(results: ScanResult[], cap = Infinity): ScanResult[] {
+  return results
+    .filter((r) => r.channels[0]?.status === 'active' && channelReliabilityScore(r) >= MIN_RELIABLE_TOUCHES)
+    .sort((a, b) => {
+      const byTouches = channelReliabilityScore(b) - channelReliabilityScore(a);
+      if (byTouches !== 0) return byTouches;
+      return b.channels[0].containmentPct - a.channels[0].containmentPct;
+    })
+    .slice(0, cap);
+}
+
 /** Full picture for a BUY/SELL result: the call, how strong the move is, and the risk of chasing it. */
 export function getSignalDetail(result: ScanResult): SignalDetail {
   const signal = getSignal(result);

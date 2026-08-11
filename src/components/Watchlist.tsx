@@ -5,6 +5,7 @@ import type { ScanResult } from '../lib/types';
 import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
 import { findSymbol } from '../lib/data/symbols';
+import { MiniChannelChart } from './MiniChannelChart';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
 
 function priceOf(result: ScanResult): string {
@@ -82,7 +83,11 @@ export function Watchlist({
             <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
               <Pressable style={({ pressed }) => [styles.hCard, pressed && styles.cardPressed]}>
                 <View style={[styles.hCover, { backgroundColor: pill.bg }]}>
-                  <Ionicons name={pill.icon} size={26} color={pill.color} />
+                  {result.channels.length > 0 ? (
+                    <MiniChannelChart result={result} height={64} />
+                  ) : (
+                    <Ionicons name={pill.icon} size={26} color={pill.color} />
+                  )}
                 </View>
                 <Text style={styles.hSymbol}>{result.symbol}</Text>
                 <Text style={styles.hName} numberOfLines={1}>
@@ -117,6 +122,11 @@ export function Watchlist({
                   {names[result.symbol] ?? ''}
                 </Text>
               </View>
+              {result.channels.length > 0 && (
+                <View style={styles.miniChartWrap}>
+                  <MiniChannelChart result={result} height={40} />
+                </View>
+              )}
               <View style={styles.right}>
                 <Text style={styles.price}>{priceOf(result)}</Text>
                 <View style={[styles.pill, { backgroundColor: pill.bg }]}>
@@ -187,6 +197,10 @@ const styles = StyleSheet.create({
     gap: 6,
     maxWidth: 132,
   },
+  miniChartWrap: {
+    width: 68,
+    marginRight: spacing.sm,
+  },
   price: {
     color: colors.text,
     fontSize: 14,
@@ -232,6 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
+    overflow: 'hidden',
   },
   hSymbol: {
     color: colors.text,

@@ -21,6 +21,7 @@ export function CandleChart({
   markers,
   revealCount,
   height = DEFAULT_HEIGHT,
+  compact = false,
 }: {
   candles: Candle[];
   channels: Channel[];
@@ -29,6 +30,8 @@ export function CandleChart({
   markers?: ChartMarker[];
   revealCount?: number;
   height?: number;
+  /** Card-sized mode: no axis price labels, no right-side label gutter — for mini charts embedded in a list row. */
+  compact?: boolean;
 }) {
   const [width, setWidth] = useState(0);
 
@@ -49,15 +52,17 @@ export function CandleChart({
     (level) => !channelPrices.some((p) => Math.abs(level.price - p) / p <= LEVEL_MATCH_TOLERANCE)
   );
 
-  const plotWidth = width - PADDING_RIGHT;
+  const paddingRight = compact ? 0 : PADDING_RIGHT;
+  const paddingY = compact ? 3 : PADDING_Y;
+  const plotWidth = width - paddingRight;
   const prices = candles.flatMap((c) => [c.high, c.low]);
   prices.push(...channelPrices, ...formingLevels.map((l) => l.price));
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
   const range = maxPrice - minPrice || 1;
-  const plotHeight = height - PADDING_Y * 2;
+  const plotHeight = height - paddingY * 2;
 
-  const y = (price: number) => PADDING_Y + plotHeight - ((price - minPrice) / range) * plotHeight;
+  const y = (price: number) => paddingY + plotHeight - ((price - minPrice) / range) * plotHeight;
 
   const slotWidth = plotWidth / candles.length;
   const bodyWidth = Math.max(1, Math.min(slotWidth * 0.6, 10));
@@ -85,9 +90,11 @@ export function CandleChart({
                 strokeWidth={1}
                 strokeDasharray="4,3"
               />
-              <SvgText x={plotWidth + 4} y={y(channel.resistance.price) + 3} fontSize={9} fill={resistanceColor}>
-                {formatAxisPrice(channel.resistance.price)}
-              </SvgText>
+              {!compact && (
+                <SvgText x={plotWidth + 4} y={y(channel.resistance.price) + 3} fontSize={9} fill={resistanceColor}>
+                  {formatAxisPrice(channel.resistance.price)}
+                </SvgText>
+              )}
               <Line
                 x1={0}
                 x2={plotWidth}
@@ -97,9 +104,11 @@ export function CandleChart({
                 strokeWidth={1}
                 strokeDasharray="4,3"
               />
-              <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={supportColor}>
-                {formatAxisPrice(channel.support.price)}
-              </SvgText>
+              {!compact && (
+                <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={supportColor}>
+                  {formatAxisPrice(channel.support.price)}
+                </SvgText>
+              )}
             </G>
           );
         })}
@@ -118,9 +127,11 @@ export function CandleChart({
                 strokeOpacity={0.4}
                 strokeDasharray="2,4"
               />
-              <SvgText x={plotWidth + 4} y={y(level.price) + 3} fontSize={8} fill={color} opacity={0.6}>
-                {formatAxisPrice(level.price)}
-              </SvgText>
+              {!compact && (
+                <SvgText x={plotWidth + 4} y={y(level.price) + 3} fontSize={8} fill={color} opacity={0.6}>
+                  {formatAxisPrice(level.price)}
+                </SvgText>
+              )}
             </G>
           );
         })}
