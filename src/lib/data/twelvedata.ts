@@ -2,8 +2,17 @@ import type { Candle } from '../types';
 import type { SymbolInfo } from './symbols';
 import { fetchWithTimeout } from './fetchWithTimeout';
 
-const API_KEY = process.env.EXPO_PUBLIC_TWELVE_DATA_KEY;
-const BASE_URL = 'https://api.twelvedata.com/time_series';
+/**
+ * A small Cloudflare Worker relay, not Twelve Data directly. Twelve Data's
+ * free tier sends no CORS headers, so a browser blocks a direct fetch
+ * before any JS runs — and the public CORS proxies tried first
+ * (allorigins.win, corsproxy.io, api.codetabs.com) all turned out to be
+ * dead or paywalled in practice, not just theoretically flaky. The Worker
+ * fetches Twelve Data server-side (where CORS doesn't apply), adds the
+ * permissive header back, and holds the API key itself — so it's no
+ * longer embedded in the public site bundle either.
+ */
+const WORKER_URL = 'https://channelscanner.jonandtami.workers.dev/';
 
 /**
  * Converts our internal symbol format to what Twelve Data expects. TSX
@@ -48,11 +57,13 @@ export function parseSeries(values: TDSeriesValue[]): Candle[] {
 }
 
 // Free tier: 8 requests/minute, 800 credits/day (batch requests bill one
-// credit per symbol, same as calling for each individually). These two
-// guards keep the app from hammering into 429s and from silently burning a
-// whole day's budget in one or two scan cycles — once either is tripped,
-// callers fall back to the existing Yahoo-proxy chain instead of waiting on
-// a call that would just get rejected anyway.
+// credit per symbol, same as calling for each individually) — these limits
+// are on the underlying Twelve Data account, so they still apply even
+// though requests now go through the Worker relay. These two guards keep
+// the app from hammering into 429s and from silently burning a whole
+// day's budget in one or two scan cycles — once either is tripped, callers
+// fall back to the Yahoo-proxy chain instead of waiting on a call that
+// would just get rejected anyway.
 const MAX_REQUESTS_PER_MINUTE = 8;
 const MAX_CREDITS_PER_DAY = 750; // a bit under Twelve Data's 800 cap, as headroom
 const requestTimestamps: number[] = [];
@@ -84,58 +95,19 @@ async function waitForRateLimitSlot(): Promise<void> {
   return waitForRateLimitSlot();
 }
 
-/**
- * Builds the list of URLs to try for a given target request — the target
- * itself on native, or the target routed through a few public CORS
- * proxies in turn on web. The cache-buster matters here for the same
- * reason it did for Yahoo: these proxies commonly cache by URL, and a
- * stale cached response is exactly the kind of wrong-price bug this
- * migration was meant to fix.
- *
- * Twelve Data's free tier doesn't send CORS headers, so a browser blocks
- * the response before JS ever sees it — same problem the Yahoo pipeline
- * had (see stocks.ts). `document` only exists in a real browser (the web
- * export); it's absent in the native Hermes/JSC runtime, so this detects
- * "running on web" without importing react-native's Platform, which would
- * break this file's vitest tests the same way it did for stocks.ts before
- * splitDetect.ts was pulled out as a pure module. Checked per-call (not
- * cached at module load) so it reflects the actual runtime, not whatever
- * was true the instant this module first loaded.
- */
-export function candidateTimeSeriesUrls(target: string): string[] {
-  const isWeb = typeof document !== 'undefined';
-  if (!isWeb) return [target];
-  return [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-  ];
-}
-
 async function callTimeSeries(symbolParam: string, interval: string, outputsize: number): Promise<any> {
-  const target = `${BASE_URL}?symbol=${encodeURIComponent(symbolParam)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&order=ASC&apikey=${API_KEY}&_=${Date.now()}`;
-  const urls = candidateTimeSeriesUrls(target);
-  let lastError: unknown;
-
-  for (const url of urls) {
-    try {
-      await waitForRateLimitSlot();
-      const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10000);
-      if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);
-      return await res.json();
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError ?? new Error('All Twelve Data sources failed');
+  await waitForRateLimitSlot();
+  const url = `${WORKER_URL}?symbol=${encodeURIComponent(symbolParam)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&order=ASC&_=${Date.now()}`;
+  const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10000);
+  if (!res.ok) throw new Error(`Twelve Data relay request failed: ${res.status}`);
+  return res.json();
 }
 
 const DEFAULT_DAILY_OUTPUTSIZE = 500; // ~2 years of trading days, matching the app's fixed analysis window
 const DEFAULT_INTRADAY_OUTPUTSIZE = 120;
 
-/** Fetches daily candles for one symbol via Twelve Data. Throws if unconfigured/unavailable so callers fall back. */
+/** Fetches daily candles for one symbol via Twelve Data. Throws if unavailable so callers fall back. */
 export async function fetchTwelveDataDaily(info: SymbolInfo, outputsize = DEFAULT_DAILY_OUTPUTSIZE): Promise<Candle[]> {
-  if (!API_KEY) throw new Error('Twelve Data API key not configured');
   if (!budgetAvailable(1)) throw new Error('Twelve Data daily credit budget exhausted');
   const json: TDSeriesResponse = await callTimeSeries(toTwelveDataSymbol(info), '1day', outputsize);
   if (json.status === 'error' || !json.values?.length) throw new Error(json.message ?? 'Twelve Data returned no data');
@@ -148,7 +120,6 @@ export async function fetchTwelveDataIntraday(
   info: SymbolInfo,
   outputsize = DEFAULT_INTRADAY_OUTPUTSIZE
 ): Promise<Candle[]> {
-  if (!API_KEY) throw new Error('Twelve Data API key not configured');
   if (!budgetAvailable(1)) throw new Error('Twelve Data daily credit budget exhausted');
   const json: TDSeriesResponse = await callTimeSeries(toTwelveDataSymbol(info), '1h', outputsize);
   if (json.status === 'error' || !json.values?.length) throw new Error(json.message ?? 'Twelve Data returned no data');
@@ -169,7 +140,6 @@ export async function fetchTwelveDataDailyBatch(
   infos: SymbolInfo[],
   outputsize = DEFAULT_DAILY_OUTPUTSIZE
 ): Promise<Record<string, Candle[]>> {
-  if (!API_KEY) throw new Error('Twelve Data API key not configured');
   if (!budgetAvailable(infos.length)) throw new Error('Twelve Data daily credit budget exhausted');
 
   const result: Record<string, Candle[]> = {};
