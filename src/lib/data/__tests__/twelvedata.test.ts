@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { parseSeries, toTwelveDataSymbol } from '../twelvedata';
+import { afterEach, describe, expect, it } from 'vitest';
+import { candidateTimeSeriesUrls, parseSeries, toTwelveDataSymbol } from '../twelvedata';
 
 describe('toTwelveDataSymbol', () => {
   it('converts a .TO TSX symbol to the colon-exchange format', () => {
@@ -55,5 +55,24 @@ describe('parseSeries', () => {
     expect(candles.map((c) => c.time)).toEqual([...candles.map((c) => c.time)].sort((a, b) => a - b));
     expect(candles[0].time).toBe(Date.UTC(2024, 0, 15) / 1000);
     expect(candles[2].time).toBe(Date.UTC(2024, 0, 17) / 1000);
+  });
+});
+
+describe('candidateTimeSeriesUrls', () => {
+  afterEach(() => {
+    // @ts-expect-error test-only cleanup of a global stubbed in these tests
+    delete globalThis.document;
+  });
+
+  it('calls the target directly when there is no `document` global (native runtime)', () => {
+    expect(candidateTimeSeriesUrls('https://api.twelvedata.com/x')).toEqual(['https://api.twelvedata.com/x']);
+  });
+
+  it('routes through CORS proxies when `document` exists (browser/web export)', () => {
+    // @ts-expect-error stubbing just enough of `document` to flip the web detection
+    globalThis.document = {};
+    const urls = candidateTimeSeriesUrls('https://api.twelvedata.com/x?y=1');
+    expect(urls).toHaveLength(3);
+    expect(urls.every((u) => u.includes(encodeURIComponent('https://api.twelvedata.com/x?y=1')))).toBe(true);
   });
 });

@@ -84,12 +84,50 @@ async function waitForRateLimitSlot(): Promise<void> {
   return waitForRateLimitSlot();
 }
 
+/**
+ * Builds the list of URLs to try for a given target request — the target
+ * itself on native, or the target routed through a few public CORS
+ * proxies in turn on web. The cache-buster matters here for the same
+ * reason it did for Yahoo: these proxies commonly cache by URL, and a
+ * stale cached response is exactly the kind of wrong-price bug this
+ * migration was meant to fix.
+ *
+ * Twelve Data's free tier doesn't send CORS headers, so a browser blocks
+ * the response before JS ever sees it — same problem the Yahoo pipeline
+ * had (see stocks.ts). `document` only exists in a real browser (the web
+ * export); it's absent in the native Hermes/JSC runtime, so this detects
+ * "running on web" without importing react-native's Platform, which would
+ * break this file's vitest tests the same way it did for stocks.ts before
+ * splitDetect.ts was pulled out as a pure module. Checked per-call (not
+ * cached at module load) so it reflects the actual runtime, not whatever
+ * was true the instant this module first loaded.
+ */
+export function candidateTimeSeriesUrls(target: string): string[] {
+  const isWeb = typeof document !== 'undefined';
+  if (!isWeb) return [target];
+  return [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
+    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
+  ];
+}
+
 async function callTimeSeries(symbolParam: string, interval: string, outputsize: number): Promise<any> {
-  const url = `${BASE_URL}?symbol=${encodeURIComponent(symbolParam)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&order=ASC&apikey=${API_KEY}`;
-  await waitForRateLimitSlot();
-  const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10000);
-  if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);
-  return res.json();
+  const target = `${BASE_URL}?symbol=${encodeURIComponent(symbolParam)}&interval=${interval}&outputsize=${outputsize}&timezone=UTC&order=ASC&apikey=${API_KEY}&_=${Date.now()}`;
+  const urls = candidateTimeSeriesUrls(target);
+  let lastError: unknown;
+
+  for (const url of urls) {
+    try {
+      await waitForRateLimitSlot();
+      const res = await fetchWithTimeout(url, { cache: 'no-store' }, 10000);
+      if (!res.ok) throw new Error(`Twelve Data request failed: ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error('All Twelve Data sources failed');
 }
 
 const DEFAULT_DAILY_OUTPUTSIZE = 500; // ~2 years of trading days, matching the app's fixed analysis window
