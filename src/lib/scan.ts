@@ -163,6 +163,27 @@ export function mostReliableChannels(results: ScanResult[], cap = Infinity): Sca
     .slice(0, cap);
 }
 
+/**
+ * Filters to the curated Buffett-style value whitelist (see
+ * buffettStyle.ts) and sorts so names with a currently active channel —
+ * something actually tradeable right now — come first, ties broken by how
+ * consistently that channel has been touched. Unlike bySignal/
+ * mostReliableChannels, this doesn't hide a company just because it has
+ * no channel at all right now — the point is to always show these
+ * particular businesses, with active setups surfaced at the top rather
+ * than filtered to only the setups.
+ */
+export function buffettStyleResults(results: ScanResult[], symbols: string[]): ScanResult[] {
+  return results
+    .filter((r) => symbols.includes(r.symbol))
+    .sort((a, b) => {
+      const aActive = a.channels[0]?.status === 'active' ? 1 : 0;
+      const bActive = b.channels[0]?.status === 'active' ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+      return channelReliabilityScore(b) - channelReliabilityScore(a);
+    });
+}
+
 /** Full picture for a BUY/SELL result: the call, how strong the move is, and the risk of chasing it. */
 export function getSignalDetail(result: ScanResult): SignalDetail {
   const signal = getSignal(result);

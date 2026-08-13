@@ -57,4 +57,6 @@ export const BLUE_CHIP_SYMBOLS: SymbolInfo[] = [
   { symbol: 'UPS', name: 'United Parcel Service Inc.', kind: 'stock' },
   { symbol: 'LOW', name: "Lowe's Companies Inc.", kind: 'stock' },
   { symbol: 'UNP', name: 'Union Pacific Corporation', kind: 'stock' },
+  { symbol: 'MCO', name: "Moody's Corporation", kind: 'stock' },
+  { symbol: 'CL', name: 'Colgate-Palmolive Co.', kind: 'stock' },
 ];

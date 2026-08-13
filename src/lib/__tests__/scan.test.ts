@@ -7,6 +7,7 @@ import {
   getSignalDetail,
   channelReliabilityScore,
   mostReliableChannels,
+  buffettStyleResults,
 } from '../scan';
 import type { TradePlan } from '../tradePlan';
 import type { Alert, Candle, Channel, Level, Pivot, ScanResult } from '../types';
@@ -251,5 +252,48 @@ describe('mostReliableChannels', () => {
       return r;
     });
     expect(mostReliableChannels(results, 2)).toHaveLength(2);
+  });
+});
+
+describe('buffettStyleResults', () => {
+  const whitelist = ['KO', 'AAPL', 'BAC'];
+
+  it('filters out anything not on the whitelist', () => {
+    const ko = makeResult([], 100, []);
+    ko.symbol = 'KO';
+    const nvda = makeResult([], 100, []);
+    nvda.symbol = 'NVDA';
+
+    const filtered = buffettStyleResults([ko, nvda], whitelist);
+    expect(filtered.map((r) => r.symbol)).toEqual(['KO']);
+  });
+
+  it('surfaces an active channel before an inactive/no-channel whitelisted symbol', () => {
+    const noChannel = makeResult([], 100, []);
+    noChannel.symbol = 'BAC';
+    const broken = makeResult([], 100, [makeChannel(90, 110, { status: 'broken', supportTouches: 5, resistanceTouches: 5 })]);
+    broken.symbol = 'AAPL';
+    const active = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 2, resistanceTouches: 2 })]);
+    active.symbol = 'KO';
+
+    const ranked = buffettStyleResults([noChannel, broken, active], whitelist);
+    expect(ranked[0].symbol).toBe('KO');
+  });
+
+  it('among active channels, breaks ties by reliability score', () => {
+    const lessTouched = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 2, resistanceTouches: 2 })]);
+    lessTouched.symbol = 'BAC';
+    const moreTouched = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 5, resistanceTouches: 5 })]);
+    moreTouched.symbol = 'AAPL';
+
+    const ranked = buffettStyleResults([lessTouched, moreTouched], whitelist);
+    expect(ranked.map((r) => r.symbol)).toEqual(['AAPL', 'BAC']);
+  });
+
+  it('still includes whitelisted symbols with no channel at all, just ranked last', () => {
+    const noChannel = makeResult([], 100, []);
+    noChannel.symbol = 'BAC';
+    const ranked = buffettStyleResults([noChannel], whitelist);
+    expect(ranked.map((r) => r.symbol)).toEqual(['BAC']);
   });
 });

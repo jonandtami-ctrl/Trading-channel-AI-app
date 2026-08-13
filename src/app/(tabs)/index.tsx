@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
-import { bySignal, mostReliableChannels } from '../../lib/scan';
+import { bySignal, mostReliableChannels, buffettStyleResults } from '../../lib/scan';
+import { BUFFETT_STYLE_SYMBOLS } from '../../lib/data/buffettStyle';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
@@ -78,6 +79,13 @@ export default function DashboardScreen() {
   // times to trust the pattern, regardless of where price sits in it today.
   const reliablePool = [...cryptoResults, ...stockResults, ...canadaResults, ...etfResults];
   const mostReliable = mostReliableChannels(reliablePool, TOP_PICKS_CAP);
+
+  // A hand-picked, deliberately narrow slice of the blue-chip universe —
+  // wide-moat, financially conservative compounders, not just "big and
+  // well-known." Always shown (not filtered to a signal) since the point
+  // is to see these specific businesses, with whichever ones currently
+  // have an active channel surfaced first.
+  const buffettPicks = buffettStyleResults(stockResults, BUFFETT_STYLE_SYMBOLS);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -176,6 +184,14 @@ export default function DashboardScreen() {
             icon="repeat"
           />
           <Watchlist results={mostReliable} names={names} horizontal />
+
+          <SectionHeader
+            title="Buffett-Style Value"
+            count={buffettPicks.length}
+            color={colors.text}
+            icon="ribbon-outline"
+          />
+          <Watchlist results={buffettPicks} names={names} horizontal />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

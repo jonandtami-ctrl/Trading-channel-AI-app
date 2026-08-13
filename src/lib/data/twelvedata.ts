@@ -83,6 +83,21 @@ function budgetAvailable(creditsNeeded: number): boolean {
   return creditsUsedToday + creditsNeeded <= MAX_CREDITS_PER_DAY;
 }
 
+/**
+ * Reserves a rate-limit slot, or throws immediately if none is free.
+ *
+ * This intentionally fails fast instead of sleeping until a slot opens up.
+ * The normal path (fetchTwelveDataDailyBatch) uses exactly one slot for
+ * the entire stock universe in a single request, so this essentially never
+ * limits real traffic. But if that batch call itself fails — Twelve Data
+ * down, misconfigured key, whatever — every symbol falls back to an
+ * individual per-symbol call, and with 100+ of those firing concurrently,
+ * a queue-and-sleep design would serialize most of them behind the 8/min
+ * limit in ~60-second waves, turning a several-second fallback into a
+ * multi-minute stall. Failing fast here means those calls drop straight
+ * to the Yahoo/demo fallback instead of queuing for a resource that was
+ * only ever sized for one request per scan.
+ */
 async function waitForRateLimitSlot(): Promise<void> {
   const now = Date.now();
   while (requestTimestamps.length && now - requestTimestamps[0] > 60_000) requestTimestamps.shift();
@@ -90,9 +105,7 @@ async function waitForRateLimitSlot(): Promise<void> {
     requestTimestamps.push(now);
     return;
   }
-  const waitMs = 60_000 - (now - requestTimestamps[0]) + 50;
-  await new Promise((resolve) => setTimeout(resolve, waitMs));
-  return waitForRateLimitSlot();
+  throw new Error('Twelve Data rate limit reached');
 }
 
 async function callTimeSeries(symbolParam: string, interval: string, outputsize: number): Promise<any> {
