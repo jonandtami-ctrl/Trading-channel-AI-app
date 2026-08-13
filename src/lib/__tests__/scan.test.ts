@@ -296,4 +296,25 @@ describe('buffettStyleResults', () => {
     const ranked = buffettStyleResults([noChannel], whitelist);
     expect(ranked.map((r) => r.symbol)).toEqual(['BAC']);
   });
+
+  it('uses valueChannels (the wider-span detection) instead of the swing channels, when present', () => {
+    const swingChannel = makeChannel(90, 110, { status: 'broken', supportTouches: 5, resistanceTouches: 5 });
+    const valueChannel = makeChannel(80, 120, { status: 'active', supportTouches: 3, resistanceTouches: 3 });
+    const result = makeResult([], 100, [swingChannel]);
+    result.symbol = 'KO';
+    result.valueChannels = [valueChannel];
+
+    const [ranked] = buffettStyleResults([result], whitelist);
+    // The returned result's `channels` should reflect valueChannels (active), not the swing channels (broken).
+    expect(ranked.channels[0]).toBe(valueChannel);
+  });
+
+  it('falls back to the swing channels when valueChannels is absent', () => {
+    const swingChannel = makeChannel(90, 110, { status: 'active', supportTouches: 3, resistanceTouches: 3 });
+    const result = makeResult([], 100, [swingChannel]);
+    result.symbol = 'KO';
+
+    const [ranked] = buffettStyleResults([result], whitelist);
+    expect(ranked.channels[0]).toBe(swingChannel);
+  });
 });

@@ -67,4 +67,12 @@ export interface ScanResult {
   tradePlan?: import('./tradePlan').TradePlan | null;
   /** Set when this symbol is sitting in a tight, long-established, sideways horizontal range. */
   stability?: import('./stability').StabilityInfo | null;
+  /**
+   * Channels detected with a much longer allowable span than `channels` —
+   * long enough for a slow-moving blue-chip stock to actually complete a
+   * round-trip, unlike the ~1-month swing-trade cap. Used by the
+   * Buffett-style value view instead of `channels`, since those companies
+   * don't move on a swing-trade timescale.
+   */
+  valueChannels?: Channel[];
 }

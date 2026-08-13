@@ -6,6 +6,17 @@ import { computeBestTradePlan, type TradePlan } from './tradePlan';
 import { findStableChannel } from './stability';
 import type { Alert, Candle, ScanResult } from './types';
 
+// A blue-chip stock genuinely takes longer to complete a support/resistance
+// round-trip than a fast-moving crypto or leveraged ETF — the ~1-month swing
+// cap below excludes almost all of them from ever showing an "active
+// channel," pushing them into the stability check instead (which requires
+// an even longer, tighter, already-well-established range). This wider cap
+// — roughly 6 months of trading days — sits in between: long enough for a
+// slow blue-chip mover to actually complete a range, short enough to still
+// be a channel worth watching rather than "this stock has gone nowhere for
+// years." Used only for the Buffett-style value view, not swing calls.
+const VALUE_MAX_SPAN_CANDLES = 130;
+
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
   const pivots = findPivots(candles, 5);
   const levels = clusterLevels(pivots);
@@ -19,7 +30,8 @@ export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): 
   // going-nowhere range — so it looks at channels without the swing span cap.
   const longTermChannels = detectChannels(candles, levels, { maxSpanCandles: Infinity });
   const stability = findStableChannel(candles, longTermChannels);
-  return { symbol, candles, channels, levels, alerts, isLive, tradePlan, stability };
+  const valueChannels = detectChannels(candles, levels, { maxSpanCandles: VALUE_MAX_SPAN_CANDLES });
+  return { symbol, candles, channels, levels, alerts, isLive, tradePlan, stability, valueChannels };
 }
 
 /** Urgency ranking used to sort the watchlist: breakouts first, then near a level, calm last. */
@@ -176,6 +188,13 @@ export function mostReliableChannels(results: ScanResult[], cap = Infinity): Sca
 export function buffettStyleResults(results: ScanResult[], symbols: string[]): ScanResult[] {
   return results
     .filter((r) => symbols.includes(r.symbol))
+    // Swap in the wider-span value channels as `channels` — the mini
+    // chart, the active/broken color, and the reliability score all read
+    // from `channels`, and a swing-tuned channel is usually just absent
+    // for a slow-moving blue chip. This only affects the copies returned
+    // here for this one section; the original swing `channels` used
+    // everywhere else in the app (trade plans, alerts, signals) is untouched.
+    .map((r) => ({ ...r, channels: r.valueChannels ?? r.channels }))
     .sort((a, b) => {
       const aActive = a.channels[0]?.status === 'active' ? 1 : 0;
       const bActive = b.channels[0]?.status === 'active' ? 1 : 0;
