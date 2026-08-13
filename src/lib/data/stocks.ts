@@ -14,13 +14,14 @@ const YAHOO_HEADERS = {
  * Yahoo's chart endpoint doesn't send CORS headers, so a browser blocks the
  * response outright before JS ever sees it — only a native app (not subject
  * to browser CORS enforcement) can call it directly. On web (the deployed
- * GitHub Pages site) this tries a couple of public CORS-forwarding proxies
- * in turn before falling back to demo data — free proxies come and go, so
- * relying on a single one isn't reliable enough on its own.
+ * GitHub Pages site) this routes through a small Cloudflare Worker relay
+ * (the same one twelvedata.ts uses) instead of a public CORS proxy — three
+ * different free public proxies were tried here first and all three turned
+ * out to be dead or paywalled in practice, not just theoretically flaky.
  *
- * The cache-buster on the target URL matters more than it looks: public
- * CORS proxies commonly cache responses by URL to cut their own origin
- * load, and a stale cached copy can badly mislead a leveraged/inverse ETF
+ * The cache-buster on the target URL matters more than it looks: proxies
+ * (public or the Worker relay alike) can end up serving a cached response
+ * by URL, and a stale cached copy can badly mislead a leveraged/inverse ETF
  * price specifically — those funds do occasional reverse splits, and a
  * response cached from just before one shows a share price several times
  * too high with nothing about it looking obviously wrong.
@@ -28,11 +29,7 @@ const YAHOO_HEADERS = {
 function candidateUrls(symbol: string, yahooRange: string, interval: string): string[] {
   const target = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${yahooRange}&interval=${interval}&_=${Date.now()}`;
   if (Platform.OS !== 'web') return [target];
-  return [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(target)}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(target)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(target)}`,
-  ];
+  return [`https://channelscanner.jonandtami.workers.dev/?url=${encodeURIComponent(target)}`];
 }
 
 function parseChartResponse(json: any): Candle[] {
