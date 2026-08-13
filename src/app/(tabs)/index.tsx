@@ -191,7 +191,7 @@ export default function DashboardScreen() {
             color={colors.text}
             icon="ribbon-outline"
           />
-          <Watchlist results={buffettPicks} names={names} horizontal />
+          <Watchlist results={buffettPicks} names={names} horizontal showChannelAge />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

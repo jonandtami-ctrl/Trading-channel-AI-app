@@ -5,6 +5,7 @@ import type { ScanResult } from '../lib/types';
 import { getSignalDetail } from '../lib/scan';
 import { formatPrice } from '../lib/format';
 import { findSymbol } from '../lib/data/symbols';
+import { channelAgeDays, formatChannelAge } from '../lib/channelAge';
 import { MiniChannelChart } from './MiniChannelChart';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
 
@@ -59,11 +60,14 @@ export function Watchlist({
   results,
   names,
   horizontal,
+  showChannelAge,
 }: {
   results: ScanResult[];
   names: Record<string, string>;
   /** Renders a swipeable row of poster-style cards instead of the default stacked list. */
   horizontal?: boolean;
+  /** Shows how long the displayed channel has persisted — meant for long-term value views, not swing signals. */
+  showChannelAge?: boolean;
 }) {
   if (results.length === 0) {
     return (
@@ -79,6 +83,7 @@ export function Watchlist({
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
         {results.map((result) => {
           const pill = signalPill(result);
+          const primaryChannel = result.channels[0];
           return (
             <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
               <Pressable style={({ pressed }) => [styles.hCard, pressed && styles.cardPressed]}>
@@ -98,6 +103,11 @@ export function Watchlist({
                   <Text style={[styles.hPillText, { color: pill.color }]} numberOfLines={1}>
                     {pill.label}
                   </Text>
+                  {showChannelAge && primaryChannel && (
+                    <Text style={styles.hChannelAge} numberOfLines={1}>
+                      In range {formatChannelAge(channelAgeDays(primaryChannel, result.candles))}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             </Link>
@@ -274,6 +284,11 @@ const styles = StyleSheet.create({
   hPillText: {
     fontSize: 10,
     fontWeight: '700',
+  },
+  hChannelAge: {
+    color: colors.textDim,
+    fontSize: 9,
+    marginTop: 1,
   },
   empty: {
     padding: 24,

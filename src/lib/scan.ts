@@ -11,11 +11,12 @@ import type { Alert, Candle, ScanResult } from './types';
 // cap below excludes almost all of them from ever showing an "active
 // channel," pushing them into the stability check instead (which requires
 // an even longer, tighter, already-well-established range). This wider cap
-// — roughly 6 months of trading days — sits in between: long enough for a
-// slow blue-chip mover to actually complete a range, short enough to still
-// be a channel worth watching rather than "this stock has gone nowhere for
-// years." Used only for the Buffett-style value view, not swing calls.
-const VALUE_MAX_SPAN_CANDLES = 130;
+// — roughly a full trading year — sits in between: long enough to match how
+// a long-term value investor actually thinks about a range, short enough to
+// still be a channel worth pointing at rather than "this has gone nowhere
+// for years" (that's what the stability check is for). Used only for the
+// Buffett-style value view, not swing calls.
+const VALUE_MAX_SPAN_CANDLES = 260;
 
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
   const pivots = findPivots(candles, 5);
