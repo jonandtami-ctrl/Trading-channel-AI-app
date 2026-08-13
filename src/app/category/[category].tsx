@@ -57,7 +57,7 @@ export default function CategoryScreen() {
               <Text style={styles.subtitle}>{meta.subtitle}</Text>
             </View>
           </View>
-          {meta.key !== 'stable' && <LiveBadge isLive={anyLive} />}
+          <LiveBadge isLive={anyLive} />
         </View>
         {loading && results.length === 0 && (
           <View style={styles.progressRow}>
