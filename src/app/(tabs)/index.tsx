@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS } from '../../lib/data/symbols';
 import { bySignal, mostReliableChannels, topActivePicks } from '../../lib/scan';
@@ -136,10 +136,10 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.statsRow}>
-            <StatTile icon="trending-up" label="Buys" value={buysTotal} color={colors.green} />
-            <StatTile icon="trending-down" label="Sells" value={sellsTotal} color={colors.red} />
-            <StatTile icon="eye" label="Watching" value={watchTotal} color={colors.amber} />
-            <StatTile icon="pin" label="Kept" value={keptResults.length} color={colors.accent} />
+            <StatTile icon="trending-up" label="Buys" value={buysTotal} color={colors.green} href="/signal/buy" />
+            <StatTile icon="trending-down" label="Sells" value={sellsTotal} color={colors.red} href="/signal/sell" />
+            <StatTile icon="eye" label="Watching" value={watchTotal} color={colors.amber} href="/signal/watch" />
+            <StatTile icon="pin" label="Kept" value={keptResults.length} color={colors.accent} href="/pinned" />
           </View>
 
           <SectionHeader title="Browse by Market" color={colors.text} icon="grid-outline" />
@@ -205,20 +205,24 @@ function StatTile({
   label,
   value,
   color,
+  href,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: number;
   color: string;
+  href: string;
 }) {
   return (
-    <View style={[styles.statTile, { borderColor: `${color}44` }]}>
-      <View style={[styles.statIconWrap, { backgroundColor: `${color}22` }]}>
-        <Ionicons name={icon} size={15} color={color} />
-      </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Link href={href} asChild>
+      <Pressable style={{ ...styles.statTile, borderColor: `${color}44` }}>
+        <View style={[styles.statIconWrap, { backgroundColor: `${color}22` }]}>
+          <Ionicons name={icon} size={15} color={color} />
+        </View>
+        <Text style={styles.statValue}>{value}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </Pressable>
+    </Link>
   );
 }
 

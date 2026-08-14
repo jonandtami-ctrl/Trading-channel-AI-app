@@ -21,6 +21,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="symbol/[symbol]" options={{ title: '' }} />
           <Stack.Screen name="category/[category]" options={{ title: '' }} />
+          <Stack.Screen name="signal/[type]" options={{ title: '' }} />
         </Stack>
       </ScanDataProvider>
     </SafeAreaProvider>
