@@ -42,4 +42,24 @@ describe('trimAtSplitDiscontinuity', () => {
     const candles = [candle(100), candle(122), candle(95), candle(108)];
     expect(trimAtSplitDiscontinuity(candles)).toEqual(candles);
   });
+
+  it('does not trust a single unconfirmed final candle as a real split', () => {
+    // A long, consistent history suddenly ends in one wildly different
+    // final print (a bad tick / stale-partial "today" bar / proxy hiccup).
+    // Nothing has happened *after* it yet to confirm the new level held —
+    // treating it as a real split would discard all the real history and
+    // report that one bad number as "the current price," which is worse
+    // than just leaving the series alone.
+    const history = [candle(258), candle(261), candle(259), candle(263)];
+    const badFinalTick = candle(87.79);
+    const all = [...history, badFinalTick];
+    expect(trimAtSplitDiscontinuity(all)).toEqual(all);
+  });
+
+  it('still trusts a jump once the new level holds for a couple of candles', () => {
+    const preSplit = [candle(258), candle(261), candle(259)];
+    const postSplit = [candle(87), candle(86.5), candle(88)];
+    const result = trimAtSplitDiscontinuity([...preSplit, ...postSplit]);
+    expect(result).toEqual(postSplit);
+  });
 });
