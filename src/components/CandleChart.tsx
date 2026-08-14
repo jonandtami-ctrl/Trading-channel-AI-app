@@ -6,7 +6,7 @@ import { colors } from '../constants/theme';
 
 const DEFAULT_HEIGHT = 320;
 const PADDING_Y = 16;
-const PADDING_RIGHT = 52;
+const PADDING_RIGHT = 60;
 const LEVEL_MATCH_TOLERANCE = 0.005; // 0.5% — treat a level as "already drawn" by a channel line at this price
 
 export interface ChartMarker {
@@ -91,7 +91,13 @@ export function CandleChart({
                 strokeDasharray="4,3"
               />
               {!compact && (
-                <SvgText x={plotWidth + 4} y={y(channel.resistance.price) + 3} fontSize={9} fill={resistanceColor}>
+                <SvgText
+                  x={plotWidth + 4}
+                  y={y(channel.resistance.price) + 4}
+                  fontSize={13}
+                  fontWeight="700"
+                  fill={resistanceColor}
+                >
                   {formatAxisPrice(channel.resistance.price)}
                 </SvgText>
               )}
@@ -105,7 +111,13 @@ export function CandleChart({
                 strokeDasharray="4,3"
               />
               {!compact && (
-                <SvgText x={plotWidth + 4} y={y(channel.support.price) + 3} fontSize={9} fill={supportColor}>
+                <SvgText
+                  x={plotWidth + 4}
+                  y={y(channel.support.price) + 4}
+                  fontSize={13}
+                  fontWeight="700"
+                  fill={supportColor}
+                >
                   {formatAxisPrice(channel.support.price)}
                 </SvgText>
               )}
@@ -128,7 +140,7 @@ export function CandleChart({
                 strokeDasharray="2,4"
               />
               {!compact && (
-                <SvgText x={plotWidth + 4} y={y(level.price) + 3} fontSize={8} fill={color} opacity={0.6}>
+                <SvgText x={plotWidth + 4} y={y(level.price) + 4} fontSize={11} fill={color} opacity={0.75}>
                   {formatAxisPrice(level.price)}
                 </SvgText>
               )}
