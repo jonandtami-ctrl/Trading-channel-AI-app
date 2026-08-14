@@ -25,6 +25,6 @@ describe('symbol data', () => {
     expect(findSymbol('BTC')?.name).toBe('Bitcoin');
     expect(findSymbol('aapl')?.name).toBe('Apple Inc.');
     expect(findSymbol('aapl')?.exchange).toBe('S&P 500');
-    expect(CRYPTO_SYMBOLS.length).toBe(50);
+    expect(CRYPTO_SYMBOLS.length).toBeGreaterThan(100);
   });
 });
