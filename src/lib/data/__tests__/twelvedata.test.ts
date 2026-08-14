@@ -2,18 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { parseSeries, toTwelveDataSymbol } from '../twelvedata';
 
 describe('toTwelveDataSymbol', () => {
-  it('converts a .TO TSX symbol to the colon-exchange format', () => {
-    expect(toTwelveDataSymbol({ symbol: 'QQU.TO', name: 'BetaPro NASDAQ-100 2x', kind: 'stock', exchange: 'TSX' })).toBe(
-      'QQU:TSX'
-    );
-  });
-
-  it('leaves a plain US stock/ETF symbol untouched', () => {
-    expect(toTwelveDataSymbol({ symbol: 'AAPL', name: 'Apple Inc.', kind: 'stock', exchange: 'Blue Chip' })).toBe(
+  it('leaves a plain US stock symbol untouched', () => {
+    expect(toTwelveDataSymbol({ symbol: 'AAPL', name: 'Apple Inc.', kind: 'stock', exchange: 'S&P 500' })).toBe(
       'AAPL'
-    );
-    expect(toTwelveDataSymbol({ symbol: 'TQQQ', name: 'ProShares UltraPro QQQ', kind: 'stock', exchange: 'ETF' })).toBe(
-      'TQQQ'
     );
   });
 });

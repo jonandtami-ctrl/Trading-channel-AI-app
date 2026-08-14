@@ -3,9 +3,8 @@ import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
-import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
-import { bySignal, mostReliableChannels, buffettStyleResults } from '../../lib/scan';
-import { BUFFETT_STYLE_SYMBOLS } from '../../lib/data/buffettStyle';
+import { ALL_SYMBOLS } from '../../lib/data/symbols';
+import { bySignal, mostReliableChannels, topActivePicks } from '../../lib/scan';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
@@ -20,6 +19,7 @@ import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 import { requestNotificationPermission, scheduleWeeklyChannelAlert, notifyNewSignals } from '../../lib/notifications';
 
 const TOP_PICKS_CAP = 6;
+const TOP_STOCK_PICKS_CAP = 15;
 const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function DashboardScreen() {
@@ -38,11 +38,8 @@ export default function DashboardScreen() {
   );
 
   const cryptoResults = Object.values(crypto.results);
-  const allStockResults = Object.values(stocks.results);
-  const stockResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'Blue Chip');
-  const canadaResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
-  const etfResults = allStockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'ETF');
-  const stableResults = allStockResults.filter((r) => !!r.stability);
+  const stockResults = Object.values(stocks.results);
+  const stableResults = stockResults.filter((r) => !!r.stability);
 
   const allResultsBysymbol: Record<string, ScanResult> = { ...crypto.results, ...stocks.results };
   const keptResults = keepSymbols.map((s) => allResultsBysymbol[s]).filter(Boolean);
@@ -50,22 +47,19 @@ export default function DashboardScreen() {
   const perCategory = {
     crypto: signalCounts(cryptoResults),
     stocks: signalCounts(stockResults),
-    canada: signalCounts(canadaResults),
-    etfs: signalCounts(etfResults),
     stable: { buy: 0, sell: 0, watch: 0, total: stableResults.length },
   };
 
-  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy + perCategory.canada.buy + perCategory.etfs.buy;
-  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell + perCategory.canada.sell + perCategory.etfs.sell;
-  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch + perCategory.canada.watch + perCategory.etfs.watch;
+  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy;
+  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell;
+  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch;
 
-  const allResults = [...cryptoResults, ...allStockResults];
+  const allResults = [...cryptoResults, ...stockResults];
 
-  // "Best Buys Under $100" — confirmed bounce-off-support setups only, priced
-  // under $100, from crypto + curated stocks + Canadian ETFs (US leveraged
-  // ETFs excluded — those run their own category). Ranked by trade-plan
-  // quality, not just proximity to a level.
-  const bestBuyPool = [...cryptoResults, ...stockResults, ...canadaResults];
+  // "Best Buys Under $100" — confirmed bounce-off-support setups only,
+  // priced under $100. Ranked by trade-plan quality, not just proximity to
+  // a level.
+  const bestBuyPool = allResults;
   const bestBuys = bySignal(bestBuyPool, 'buy')
     .filter((r) => {
       const last = r.candles[r.candles.length - 1];
@@ -77,15 +71,14 @@ export default function DashboardScreen() {
   // Not "what's actionable right now" like Best Buys, but "what's proven
   // itself" — symbols whose channel has bounced back and forth enough
   // times to trust the pattern, regardless of where price sits in it today.
-  const reliablePool = [...cryptoResults, ...stockResults, ...canadaResults, ...etfResults];
-  const mostReliable = mostReliableChannels(reliablePool, TOP_PICKS_CAP);
+  const mostReliable = mostReliableChannels(allResults, TOP_PICKS_CAP);
 
-  // A hand-picked, deliberately narrow slice of the blue-chip universe —
-  // wide-moat, financially conservative compounders, not just "big and
-  // well-known." Always shown (not filtered to a signal) since the point
-  // is to see these specific businesses, with whichever ones currently
-  // have an active channel surfaced first.
-  const buffettPicks = buffettStyleResults(stockResults, BUFFETT_STYLE_SYMBOLS);
+  // The best of the whole S&P 500 scan right now: stocks with a currently
+  // active channel on a timescale that actually fits how a large-cap
+  // stock moves (see topActivePicks/VALUE_MAX_SPAN_CANDLES), ranked by
+  // touch count and containment. This is the "give me the best ones to
+  // trade" list.
+  const topPicks = topActivePicks(stockResults, TOP_STOCK_PICKS_CAP);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -95,25 +88,25 @@ export default function DashboardScreen() {
   }, []);
 
   useEffect(() => {
-    if (stocks.loading || allStockResults.length === 0 || alertStatus !== 'granted') return;
-    scheduleWeeklyChannelAlert(allStockResults);
-    notifyNewSignals(allStockResults, seenSignals.current).then((next) => {
+    if (stocks.loading || stockResults.length === 0 || alertStatus !== 'granted') return;
+    scheduleWeeklyChannelAlert(stockResults);
+    notifyNewSignals(stockResults, seenSignals.current).then((next) => {
       seenSignals.current = next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stocks.loading, alertStatus, allStockResults.length]);
+  }, [stocks.loading, alertStatus, stockResults.length]);
 
-  const initialLoad = cryptoResults.length === 0 && allStockResults.length === 0;
+  const initialLoad = cryptoResults.length === 0 && stockResults.length === 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {initialLoad ? (
         <View style={styles.spinnerWrap}>
           <Ionicons name="pulse" size={28} color={colors.accent} />
-          <Text style={styles.spinnerText}>Scanning crypto, stocks &amp; ETFs…</Text>
+          <Text style={styles.spinnerText}>Scanning crypto &amp; the S&amp;P 500…</Text>
           <Text style={styles.spinnerSubtext}>
-            First load checks ~110 curated tickers — blue-chip stocks, Canadian &amp; US leveraged ETFs — usually
-            just a few seconds. Results fill in below as they come in.
+            First load checks ~335 tickers — the S&amp;P 500 stock universe plus top crypto — usually just a few
+            seconds. Results fill in below as they come in.
           </Text>
         </View>
       ) : (
@@ -135,7 +128,7 @@ export default function DashboardScreen() {
               <View style={styles.progressRow}>
                 <Ionicons name="refresh" size={12} color={colors.blue} />
                 <Text style={styles.progressText}>
-                  scanning stocks &amp; ETFs… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
+                  scanning the S&amp;P 500… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
                   {Math.round((stocks.scanned / stocks.total) * 100)}%)
                 </Text>
               </View>
@@ -186,12 +179,12 @@ export default function DashboardScreen() {
           <Watchlist results={mostReliable} names={names} horizontal />
 
           <SectionHeader
-            title="Buffett-Style Value"
-            count={buffettPicks.length}
+            title="Top 15 to Trade"
+            count={topPicks.length}
             color={colors.text}
             icon="ribbon-outline"
           />
-          <Watchlist results={buffettPicks} names={names} horizontal showChannelAge />
+          <Watchlist results={topPicks} names={names} horizontal showChannelAge />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

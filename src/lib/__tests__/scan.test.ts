@@ -7,7 +7,7 @@ import {
   getSignalDetail,
   channelReliabilityScore,
   mostReliableChannels,
-  buffettStyleResults,
+  topActivePicks,
 } from '../scan';
 import type { TradePlan } from '../tradePlan';
 import type { Alert, Candle, Channel, Level, Pivot, ScanResult } from '../types';
@@ -255,48 +255,7 @@ describe('mostReliableChannels', () => {
   });
 });
 
-describe('buffettStyleResults', () => {
-  const whitelist = ['KO', 'AAPL', 'BAC'];
-
-  it('filters out anything not on the whitelist', () => {
-    const ko = makeResult([], 100, []);
-    ko.symbol = 'KO';
-    const nvda = makeResult([], 100, []);
-    nvda.symbol = 'NVDA';
-
-    const filtered = buffettStyleResults([ko, nvda], whitelist);
-    expect(filtered.map((r) => r.symbol)).toEqual(['KO']);
-  });
-
-  it('surfaces an active channel before an inactive/no-channel whitelisted symbol', () => {
-    const noChannel = makeResult([], 100, []);
-    noChannel.symbol = 'BAC';
-    const broken = makeResult([], 100, [makeChannel(90, 110, { status: 'broken', supportTouches: 5, resistanceTouches: 5 })]);
-    broken.symbol = 'AAPL';
-    const active = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 2, resistanceTouches: 2 })]);
-    active.symbol = 'KO';
-
-    const ranked = buffettStyleResults([noChannel, broken, active], whitelist);
-    expect(ranked[0].symbol).toBe('KO');
-  });
-
-  it('among active channels, breaks ties by reliability score', () => {
-    const lessTouched = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 2, resistanceTouches: 2 })]);
-    lessTouched.symbol = 'BAC';
-    const moreTouched = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 5, resistanceTouches: 5 })]);
-    moreTouched.symbol = 'AAPL';
-
-    const ranked = buffettStyleResults([lessTouched, moreTouched], whitelist);
-    expect(ranked.map((r) => r.symbol)).toEqual(['AAPL', 'BAC']);
-  });
-
-  it('still includes whitelisted symbols with no channel at all, just ranked last', () => {
-    const noChannel = makeResult([], 100, []);
-    noChannel.symbol = 'BAC';
-    const ranked = buffettStyleResults([noChannel], whitelist);
-    expect(ranked.map((r) => r.symbol)).toEqual(['BAC']);
-  });
-
+describe('topActivePicks', () => {
   it('uses valueChannels (the wider-span detection) instead of the swing channels, when present', () => {
     const swingChannel = makeChannel(90, 110, { status: 'broken', supportTouches: 5, resistanceTouches: 5 });
     const valueChannel = makeChannel(80, 120, { status: 'active', supportTouches: 3, resistanceTouches: 3 });
@@ -304,7 +263,7 @@ describe('buffettStyleResults', () => {
     result.symbol = 'KO';
     result.valueChannels = [valueChannel];
 
-    const [ranked] = buffettStyleResults([result], whitelist);
+    const [ranked] = topActivePicks([result]);
     // The returned result's `channels` should reflect valueChannels (active), not the swing channels (broken).
     expect(ranked.channels[0]).toBe(valueChannel);
   });
@@ -314,7 +273,21 @@ describe('buffettStyleResults', () => {
     const result = makeResult([], 100, [swingChannel]);
     result.symbol = 'KO';
 
-    const [ranked] = buffettStyleResults([result], whitelist);
+    const [ranked] = topActivePicks([result]);
     expect(ranked.channels[0]).toBe(swingChannel);
+  });
+
+  it('excludes symbols with no active channel and respects the cap', () => {
+    const noChannel = makeResult([], 100, []);
+    noChannel.symbol = 'NOPE';
+    const results = ['A', 'B', 'C'].map((sym) => {
+      const r = makeResult([], 100, [makeChannel(90, 110, { status: 'active', supportTouches: 4, resistanceTouches: 4 })]);
+      r.symbol = sym;
+      return r;
+    });
+
+    const ranked = topActivePicks([noChannel, ...results], 2);
+    expect(ranked).toHaveLength(2);
+    expect(ranked.every((r) => r.symbol !== 'NOPE')).toBe(true);
   });
 });

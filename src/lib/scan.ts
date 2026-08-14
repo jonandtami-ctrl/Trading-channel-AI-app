@@ -6,16 +6,17 @@ import { computeBestTradePlan, type TradePlan } from './tradePlan';
 import { findStableChannel } from './stability';
 import type { Alert, Candle, ScanResult } from './types';
 
-// A blue-chip stock genuinely takes longer to complete a support/resistance
-// round-trip than a fast-moving crypto or leveraged ETF — the ~1-month swing
-// cap below excludes almost all of them from ever showing an "active
-// channel," pushing them into the stability check instead (which requires
-// an even longer, tighter, already-well-established range). This wider cap
-// — roughly a full trading year — sits in between: long enough to match how
-// a long-term value investor actually thinks about a range, short enough to
-// still be a channel worth pointing at rather than "this has gone nowhere
-// for years" (that's what the stability check is for). Used only for the
-// Buffett-style value view, not swing calls.
+// A large-cap stock genuinely takes longer to complete a support/resistance
+// round-trip than a fast-moving crypto — the ~1-month swing cap below
+// excludes almost all of them from ever showing an "active channel,"
+// pushing them into the stability check instead (which requires an even
+// longer, tighter, already-well-established range). This wider cap —
+// roughly a full trading year — sits in between: long enough to match how
+// an investor actually thinks about a range for a slow mover, short enough
+// to still be a channel worth pointing at rather than "this has gone
+// nowhere for years" (that's what the stability check is for). Used for
+// the stock universe's "active channel" view (see topActivePicks), not
+// swing calls.
 const VALUE_MAX_SPAN_CANDLES = 260;
 
 export function scanSymbol(symbol: string, candles: Candle[], isLive: boolean): ScanResult {
@@ -177,31 +178,19 @@ export function mostReliableChannels(results: ScanResult[], cap = Infinity): Sca
 }
 
 /**
- * Filters to the curated Buffett-style value whitelist (see
- * buffettStyle.ts) and sorts so names with a currently active channel —
- * something actually tradeable right now — come first, ties broken by how
- * consistently that channel has been touched. Unlike bySignal/
- * mostReliableChannels, this doesn't hide a company just because it has
- * no channel at all right now — the point is to always show these
- * particular businesses, with active setups surfaced at the top rather
- * than filtered to only the setups.
+ * The best of the whole stock universe right now: whichever symbols have
+ * a currently active channel on the wider ~1-year window (see
+ * VALUE_MAX_SPAN_CANDLES) — the timescale that actually fits how a
+ * large-cap stock moves — ranked by the same touch-count-then-containment
+ * quality bar as mostReliableChannels. Swaps `channels` for the wider
+ * `valueChannels` on the returned copies so the mini chart and reliability
+ * score reflect the same channel being ranked on; the original swing
+ * `channels` used everywhere else (trade plans, alerts, signals) is
+ * untouched.
  */
-export function buffettStyleResults(results: ScanResult[], symbols: string[]): ScanResult[] {
-  return results
-    .filter((r) => symbols.includes(r.symbol))
-    // Swap in the wider-span value channels as `channels` — the mini
-    // chart, the active/broken color, and the reliability score all read
-    // from `channels`, and a swing-tuned channel is usually just absent
-    // for a slow-moving blue chip. This only affects the copies returned
-    // here for this one section; the original swing `channels` used
-    // everywhere else in the app (trade plans, alerts, signals) is untouched.
-    .map((r) => ({ ...r, channels: r.valueChannels ?? r.channels }))
-    .sort((a, b) => {
-      const aActive = a.channels[0]?.status === 'active' ? 1 : 0;
-      const bActive = b.channels[0]?.status === 'active' ? 1 : 0;
-      if (aActive !== bActive) return bActive - aActive;
-      return channelReliabilityScore(b) - channelReliabilityScore(a);
-    });
+export function topActivePicks(results: ScanResult[], cap = 15): ScanResult[] {
+  const valueView = results.map((r) => ({ ...r, channels: r.valueChannels ?? r.channels }));
+  return mostReliableChannels(valueView, cap);
 }
 
 /** Full picture for a BUY/SELL result: the call, how strong the move is, and the risk of chasing it. */

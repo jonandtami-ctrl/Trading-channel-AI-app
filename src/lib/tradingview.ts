@@ -10,9 +10,5 @@ export function tradingViewUrl(info: SymbolInfo): string {
   if (info.kind === 'crypto' && info.binancePair) {
     return `https://www.tradingview.com/chart/?symbol=BINANCE%3A${info.binancePair}`;
   }
-  if (info.exchange === 'TSX') {
-    const ticker = info.symbol.replace(/\.TO$/, '');
-    return `https://www.tradingview.com/chart/?symbol=TSX%3A${ticker}`;
-  }
   return `https://www.tradingview.com/chart/?symbol=${encodeURIComponent(info.symbol)}`;
 }

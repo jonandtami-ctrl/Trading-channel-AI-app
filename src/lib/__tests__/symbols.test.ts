@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS, findSymbol } from '../data/symbols';
 
 describe('symbol data', () => {
-  it('has a curated stock universe — blue-chip S&P 500 + TSX (CAD) + US leveraged ETFs — not all 500 equities', () => {
-    expect(STOCK_SYMBOLS.length).toBeGreaterThan(100);
-    expect(STOCK_SYMBOLS.length).toBeLessThan(130);
+  it('has a broad S&P 500 stock universe, no ETFs or leveraged products', () => {
+    expect(STOCK_SYMBOLS.length).toBeGreaterThan(250);
+    expect(STOCK_SYMBOLS.length).toBeLessThan(320);
     expect(STOCK_SYMBOLS.every((s) => s.kind === 'stock')).toBe(true);
+    expect(STOCK_SYMBOLS.every((s) => s.exchange === 'S&P 500')).toBe(true);
   });
 
   it('has no duplicate symbols across the combined universe', () => {
@@ -20,12 +21,10 @@ describe('symbol data', () => {
     }
   });
 
-  it('finds a known crypto, blue-chip stock, and ETF symbol case-insensitively', () => {
+  it('finds a known crypto and stock symbol case-insensitively', () => {
     expect(findSymbol('BTC')?.name).toBe('Bitcoin');
     expect(findSymbol('aapl')?.name).toBe('Apple Inc.');
-    expect(findSymbol('aapl')?.exchange).toBe('Blue Chip');
-    expect(findSymbol('tqqq')?.name).toContain('Nasdaq-100');
-    expect(findSymbol('qqu.to')?.exchange).toBe('TSX');
+    expect(findSymbol('aapl')?.exchange).toBe('S&P 500');
     expect(CRYPTO_SYMBOLS.length).toBe(50);
   });
 });

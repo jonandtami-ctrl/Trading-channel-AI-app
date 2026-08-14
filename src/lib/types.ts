@@ -69,10 +69,10 @@ export interface ScanResult {
   stability?: import('./stability').StabilityInfo | null;
   /**
    * Channels detected with a much longer allowable span than `channels` —
-   * long enough for a slow-moving blue-chip stock to actually complete a
-   * round-trip, unlike the ~1-month swing-trade cap. Used by the
-   * Buffett-style value view instead of `channels`, since those companies
-   * don't move on a swing-trade timescale.
+   * long enough for a slow-moving large-cap stock to actually complete a
+   * round-trip, unlike the ~1-month swing-trade cap. Used by the "Top 15
+   * to Trade" active-channel view instead of `channels`, since those
+   * stocks don't move on a swing-trade timescale.
    */
   valueChannels?: Channel[];
 }

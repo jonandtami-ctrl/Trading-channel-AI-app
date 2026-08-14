@@ -149,17 +149,7 @@ export default function SettingsScreen() {
         <InfoRow
           icon="business-outline"
           label="Stocks"
-          detail="50 curated blue-chip S&P 500 names — live from Yahoo Finance, refreshed every 20 min"
-        />
-        <InfoRow
-          icon="flag-outline"
-          label="Canadian ETFs"
-          detail="TSX-listed leveraged ETFs (CAD) — live from Yahoo Finance, refreshed every 20 min"
-        />
-        <InfoRow
-          icon="layers-outline"
-          label="US ETFs"
-          detail="Leveraged/inverse funds (USD) — live from Yahoo Finance, refreshed every 20 min"
+          detail="~285 S&P 500 names across every sector — live from Twelve Data/Yahoo Finance, refreshed every 12 hours"
         />
         <InfoRow icon="cash-outline" label="Price filter" detail="None — all qualifying picks are shown, any price" />
       </View>
