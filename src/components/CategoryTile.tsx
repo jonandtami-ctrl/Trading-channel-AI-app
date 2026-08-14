@@ -19,7 +19,7 @@ export function CategoryTile({
 }) {
   return (
     <Link href={{ pathname: '/category/[category]', params: { category: meta.key } }} asChild>
-      <Pressable style={({ pressed }) => [styles.tile, { borderColor: `${meta.color}3d` }, pressed && styles.tilePressed]}>
+      <Pressable style={{ ...styles.tile, borderColor: `${meta.color}3d` }}>
         <View style={styles.top}>
           <View style={[styles.iconWrap, { backgroundColor: `${meta.color}22` }]}>
             <Ionicons name={meta.icon} size={16} color={meta.color} />
@@ -59,9 +59,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 6,
     ...cardShadow,
-  },
-  tilePressed: {
-    backgroundColor: colors.bgPanelHover,
   },
   top: {
     flexDirection: 'row',

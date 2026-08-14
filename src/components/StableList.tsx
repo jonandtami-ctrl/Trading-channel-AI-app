@@ -30,7 +30,7 @@ export function StableList({ results, names }: { results: ScanResult[]; names: R
         const kind = findSymbol(result.symbol)?.kind === 'stock' ? 'stock' : 'crypto';
         return (
           <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
-            <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+            <Pressable style={styles.card}>
               <View style={styles.accentBar} />
               <View style={styles.left}>
                 <Text style={styles.symbol}>{result.symbol}</Text>
@@ -73,10 +73,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
     ...cardShadow,
-  },
-  cardPressed: {
-    backgroundColor: colors.bgPanelHover,
-    borderColor: colors.accent,
   },
   accentBar: {
     position: 'absolute',

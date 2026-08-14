@@ -86,7 +86,7 @@ export function Watchlist({
           const primaryChannel = result.channels[0];
           return (
             <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
-              <Pressable style={({ pressed }) => [styles.hCard, pressed && styles.cardPressed]}>
+              <Pressable style={styles.hCard}>
                 <View style={[styles.hCover, { backgroundColor: pill.bg }]}>
                   {result.channels.length > 0 ? (
                     <MiniChannelChart result={result} height={64} />
@@ -124,7 +124,7 @@ export function Watchlist({
         const detail = getSignalDetail(result);
         return (
           <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>
-            <Pressable style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}>
+            <Pressable style={styles.card}>
               <View style={[styles.accentBar, { backgroundColor: pill.color }]} />
               <View style={styles.left}>
                 <Text style={styles.symbol}>{result.symbol}</Text>
@@ -174,10 +174,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     overflow: 'hidden',
     ...cardShadow,
-  },
-  cardPressed: {
-    backgroundColor: colors.bgPanelHover,
-    borderColor: colors.accent,
   },
   accentBar: {
     position: 'absolute',
