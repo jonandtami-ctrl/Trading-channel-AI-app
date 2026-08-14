@@ -277,6 +277,29 @@ describe('topActivePicks', () => {
     expect(ranked.channels[0]).toBe(swingChannel);
   });
 
+  it('recomputes alerts and the trade plan against the wide channel, not the stale swing plan', () => {
+    // Price sits right at the wide channel's support, nowhere near the
+    // (irrelevant, much tighter) swing channel's levels — if the badge
+    // logic were still reading the swing plan it would show nothing.
+    const swingChannel = makeChannel(10, 12, { status: 'active', supportTouches: 5, resistanceTouches: 5 });
+    const valueChannel = makeChannel(90, 110, { status: 'active', supportTouches: 5, resistanceTouches: 5 });
+    const candles: Candle[] = [{ time: 0, open: 91, high: 91.5, low: 90.2, close: 90.5 }];
+    const result: ScanResult = {
+      symbol: 'BIG',
+      candles,
+      channels: [swingChannel],
+      levels: [],
+      alerts: [],
+      isLive: true,
+      valueChannels: [valueChannel],
+    };
+
+    const [ranked] = topActivePicks([result]);
+    expect(ranked.alerts.some((a) => a.type === 'approaching_support' && a.levelPrice === 90)).toBe(true);
+    expect(ranked.tradePlan?.support).toBe(90);
+    expect(ranked.tradePlan?.resistance).toBe(110);
+  });
+
   it('excludes symbols with no active channel and respects the cap', () => {
     const noChannel = makeResult([], 100, []);
     noChannel.symbol = 'NOPE';

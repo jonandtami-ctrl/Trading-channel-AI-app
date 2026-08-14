@@ -19,7 +19,6 @@ import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 import { requestNotificationPermission, scheduleWeeklyChannelAlert, notifyNewSignals } from '../../lib/notifications';
 
 const TOP_PICKS_CAP = 6;
-const TOP_STOCK_PICKS_CAP = 15;
 const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function DashboardScreen() {
@@ -73,12 +72,12 @@ export default function DashboardScreen() {
   // times to trust the pattern, regardless of where price sits in it today.
   const mostReliable = mostReliableChannels(allResults, TOP_PICKS_CAP);
 
-  // The best of the whole S&P 500 scan right now: stocks with a currently
-  // active channel on a timescale that actually fits how a large-cap
-  // stock moves (see topActivePicks/VALUE_MAX_SPAN_CANDLES), ranked by
-  // touch count and containment. This is the "give me the best ones to
-  // trade" list.
-  const topPicks = topActivePicks(stockResults, TOP_STOCK_PICKS_CAP);
+  // Every stock in the S&P 500 scan with a currently active channel on a
+  // timescale that actually fits how a large-cap stock moves (see
+  // topActivePicks/VALUE_MAX_SPAN_CANDLES), ranked by touch count and
+  // containment. Uncapped — anything that clears the reliability bar
+  // shows up here, not just a fixed top handful.
+  const topPicks = topActivePicks(stockResults);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -179,7 +178,7 @@ export default function DashboardScreen() {
           <Watchlist results={mostReliable} names={names} horizontal />
 
           <SectionHeader
-            title="Top 15 to Trade"
+            title="Active Channels to Trade"
             count={topPicks.length}
             color={colors.text}
             icon="ribbon-outline"

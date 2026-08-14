@@ -183,13 +183,22 @@ export function mostReliableChannels(results: ScanResult[], cap = Infinity): Sca
  * VALUE_MAX_SPAN_CANDLES) — the timescale that actually fits how a
  * large-cap stock moves — ranked by the same touch-count-then-containment
  * quality bar as mostReliableChannels. Swaps `channels` for the wider
- * `valueChannels` on the returned copies so the mini chart and reliability
- * score reflect the same channel being ranked on; the original swing
- * `channels` used everywhere else (trade plans, alerts, signals) is
- * untouched.
+ * `valueChannels` on the returned copies, and recomputes alerts/tradePlan
+ * against that same wide channel — otherwise the BUY/WATCH/SELL badge
+ * would keep reading off the original ~1-month swing plan, which rarely
+ * fires for a slow-moving large cap and made almost everything here show
+ * up as a flat "in channel" instead of the buy/watch zone it's actually
+ * sitting in on the window being ranked. No cap by default — every
+ * symbol that clears the reliability bar is a genuine option, not just
+ * the top handful.
  */
-export function topActivePicks(results: ScanResult[], cap = 15): ScanResult[] {
-  const valueView = results.map((r) => ({ ...r, channels: r.valueChannels ?? r.channels }));
+export function topActivePicks(results: ScanResult[], cap = Infinity): ScanResult[] {
+  const valueView = results.map((r) => {
+    const channels = r.valueChannels ?? r.channels;
+    const alerts = generateAlerts(r.symbol, r.candles, channels);
+    const tradePlan = computeBestTradePlan(r.symbol, r.candles, channels);
+    return { ...r, channels, alerts, tradePlan };
+  });
   return mostReliableChannels(valueView, cap);
 }
 
