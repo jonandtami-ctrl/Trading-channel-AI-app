@@ -7,6 +7,12 @@ describe('toTwelveDataSymbol', () => {
       'AAPL'
     );
   });
+
+  it('converts a .TO TSX symbol to the colon-exchange format', () => {
+    expect(toTwelveDataSymbol({ symbol: 'RY.TO', name: 'Royal Bank of Canada', kind: 'stock', exchange: 'TSX' })).toBe(
+      'RY:TSX'
+    );
+  });
 });
 
 describe('parseSeries', () => {

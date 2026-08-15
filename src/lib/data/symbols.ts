@@ -1,6 +1,7 @@
 import { SP500_SYMBOLS } from './sp500';
+import { TSX_SYMBOLS } from './tsx';
 
-export type Exchange = 'S&P 500';
+export type Exchange = 'S&P 500' | 'TSX';
 
 export interface SymbolInfo {
   symbol: string; // display symbol, e.g. BTC or AAPL
@@ -165,7 +166,14 @@ export const CRYPTO_SYMBOLS: SymbolInfo[] = [
 
 // A broad slice of the S&P 500 (see sp500.ts) — no ETFs, no leveraged
 // products, just real companies — scanned for genuine, tradeable channels.
-export const STOCK_SYMBOLS: SymbolInfo[] = SP500_SYMBOLS.map((s) => ({ ...s, exchange: 'S&P 500' as const }));
+const SP500_TAGGED: SymbolInfo[] = SP500_SYMBOLS.map((s) => ({ ...s, exchange: 'S&P 500' as const }));
+// Major TSX-listed Canadian companies (see tsx.ts) — priced/settled in
+// CAD, cheaper to trade from a Canadian brokerage than a US ticker since
+// there's no currency conversion. Scanned alongside the S&P 500 but kept
+// in their own "TSX (Canada)" browse category and dashboard row.
+const TSX_TAGGED: SymbolInfo[] = TSX_SYMBOLS.map((s) => ({ ...s, exchange: 'TSX' as const }));
+
+export const STOCK_SYMBOLS: SymbolInfo[] = [...SP500_TAGGED, ...TSX_TAGGED];
 
 export const ALL_SYMBOLS: SymbolInfo[] = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS];
 

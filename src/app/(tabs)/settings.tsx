@@ -151,6 +151,11 @@ export default function SettingsScreen() {
           label="Stocks"
           detail="~285 S&P 500 names across every sector — live from Twelve Data/Yahoo Finance, refreshed every 12 hours"
         />
+        <InfoRow
+          icon="flag-outline"
+          label="TSX (Canada)"
+          detail="63 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
+        />
         <InfoRow icon="cash-outline" label="Price filter" detail="None — all qualifying picks are shown, any price" />
       </View>
 

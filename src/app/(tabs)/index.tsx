@@ -3,7 +3,7 @@ import { Link, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
-import { ALL_SYMBOLS } from '../../lib/data/symbols';
+import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
 import { bySignal, mostReliableChannels, topActivePicks } from '../../lib/scan';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
@@ -38,6 +38,11 @@ export default function DashboardScreen() {
 
   const cryptoResults = Object.values(crypto.results);
   const stockResults = Object.values(stocks.results);
+  // TSX names are scanned alongside the S&P 500 but get their own browse
+  // category and dashboard row — split them out so the "Stocks" tile/row
+  // stays a pure S&P 500 view.
+  const sp500Results = stockResults.filter((r) => findSymbol(r.symbol)?.exchange !== 'TSX');
+  const tsxResults = stockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
   const stableResults = stockResults.filter((r) => !!r.stability);
 
   const allResultsBysymbol: Record<string, ScanResult> = { ...crypto.results, ...stocks.results };
@@ -45,13 +50,14 @@ export default function DashboardScreen() {
 
   const perCategory = {
     crypto: signalCounts(cryptoResults),
-    stocks: signalCounts(stockResults),
+    stocks: signalCounts(sp500Results),
+    tsx: signalCounts(tsxResults),
     stable: { buy: 0, sell: 0, watch: 0, total: stableResults.length },
   };
 
-  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy;
-  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell;
-  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch;
+  const buysTotal = perCategory.crypto.buy + perCategory.stocks.buy + perCategory.tsx.buy;
+  const sellsTotal = perCategory.crypto.sell + perCategory.stocks.sell + perCategory.tsx.sell;
+  const watchTotal = perCategory.crypto.watch + perCategory.stocks.watch + perCategory.tsx.watch;
 
   const allResults = [...cryptoResults, ...stockResults];
 
@@ -77,7 +83,10 @@ export default function DashboardScreen() {
   // topActivePicks/VALUE_MAX_SPAN_CANDLES), ranked by touch count and
   // containment. Uncapped — anything that clears the reliability bar
   // shows up here, not just a fixed top handful.
-  const topPicks = topActivePicks(stockResults);
+  const topPicks = topActivePicks(sp500Results);
+  // Same idea, scoped to TSX — priced/settled in CAD, so cheaper to
+  // actually trade from a Canadian brokerage than a US ticker.
+  const tsxPicks = topActivePicks(tsxResults);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -102,10 +111,10 @@ export default function DashboardScreen() {
       {initialLoad ? (
         <View style={styles.spinnerWrap}>
           <Ionicons name="pulse" size={28} color={colors.accent} />
-          <Text style={styles.spinnerText}>Scanning crypto &amp; the S&amp;P 500…</Text>
+          <Text style={styles.spinnerText}>Scanning crypto, the S&amp;P 500, &amp; the TSX…</Text>
           <Text style={styles.spinnerSubtext}>
-            First load checks ~420 tickers — the S&amp;P 500 stock universe plus 140 crypto — usually just a few
-            seconds. Results fill in below as they come in.
+            First load checks ~486 tickers — the S&amp;P 500, TSX, and top crypto — usually just a few seconds.
+            Results fill in below as they come in.
           </Text>
         </View>
       ) : (
@@ -127,7 +136,7 @@ export default function DashboardScreen() {
               <View style={styles.progressRow}>
                 <Ionicons name="refresh" size={12} color={colors.blue} />
                 <Text style={styles.progressText}>
-                  scanning the S&amp;P 500… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
+                  scanning stocks… {stocks.scanned.toLocaleString()} / {stocks.total.toLocaleString()} (
                   {Math.round((stocks.scanned / stocks.total) * 100)}%)
                 </Text>
               </View>
@@ -184,6 +193,14 @@ export default function DashboardScreen() {
             icon="ribbon-outline"
           />
           <Watchlist results={topPicks} names={names} horizontal showChannelAge />
+
+          <SectionHeader
+            title="TSX Picks (CAD)"
+            count={tsxPicks.length}
+            color={colors.blue}
+            icon="flag-outline"
+          />
+          <Watchlist results={tsxPicks} names={names} horizontal showChannelAge />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />

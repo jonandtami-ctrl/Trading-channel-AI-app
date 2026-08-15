@@ -11,4 +11,9 @@ describe('tradingViewUrl', () => {
     const url = tradingViewUrl({ symbol: 'AAPL', name: 'Apple Inc.', kind: 'stock', exchange: 'S&P 500' });
     expect(url).toBe('https://www.tradingview.com/chart/?symbol=AAPL');
   });
+
+  it('builds a TSX-prefixed link, stripped of the .TO suffix, for TSX stocks', () => {
+    const url = tradingViewUrl({ symbol: 'RY.TO', name: 'Royal Bank of Canada', kind: 'stock', exchange: 'TSX' });
+    expect(url).toBe('https://www.tradingview.com/chart/?symbol=TSX%3ARY');
+  });
 });

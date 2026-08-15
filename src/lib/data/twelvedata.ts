@@ -15,9 +15,12 @@ import { fetchWithTimeout } from './fetchWithTimeout';
 const WORKER_URL = 'https://channelscanner.jonandtami.workers.dev/';
 
 /**
- * Converts our internal symbol format to what Twelve Data expects.
+ * Converts our internal symbol format to what Twelve Data expects. TSX
+ * names use a colon-exchange suffix (e.g. "RY:TSX"), not the ".TO" suffix
+ * Yahoo/our own data uses.
  */
 export function toTwelveDataSymbol(info: SymbolInfo): string {
+  if (info.exchange === 'TSX') return `${info.symbol.replace(/\.TO$/, '')}:TSX`;
   return info.symbol;
 }
 

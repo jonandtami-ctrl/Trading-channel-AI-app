@@ -1,7 +1,7 @@
 import type { Ionicons } from '@expo/vector-icons';
 import { colors } from './theme';
 
-export type Category = 'crypto' | 'stocks' | 'stable';
+export type Category = 'crypto' | 'stocks' | 'tsx' | 'stable';
 
 export interface CategoryMeta {
   key: Category;
@@ -14,6 +14,7 @@ export interface CategoryMeta {
 export const CATEGORIES: CategoryMeta[] = [
   { key: 'crypto', title: 'Crypto', subtitle: '139 coins · Binance', icon: 'logo-bitcoin', color: colors.purple },
   { key: 'stocks', title: 'Stocks', subtitle: 'S&P 500 · Yahoo Finance / Twelve Data', icon: 'business-outline', color: colors.amber },
+  { key: 'tsx', title: 'TSX (Canada)', subtitle: '63 companies · CAD, no FX fees', icon: 'flag-outline', color: colors.blue },
   { key: 'stable', title: 'Stable Ranges', subtitle: 'Long-term, low-volatility, going-nowhere', icon: 'shield-checkmark-outline', color: colors.green },
 ];
 
