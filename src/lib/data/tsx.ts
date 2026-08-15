@@ -23,13 +23,20 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'BMO.TO', name: 'Bank of Montreal', kind: 'stock' },
   { symbol: 'CM.TO', name: 'Canadian Imperial Bank of Commerce', kind: 'stock' },
   { symbol: 'NA.TO', name: 'National Bank of Canada', kind: 'stock' },
+  { symbol: 'EQB.TO', name: 'EQB Inc.', kind: 'stock' },
 
-  // Insurance
+  // Insurance / diversified financials
   { symbol: 'MFC.TO', name: 'Manulife Financial Corp.', kind: 'stock' },
   { symbol: 'SLF.TO', name: 'Sun Life Financial Inc.', kind: 'stock' },
   { symbol: 'GWO.TO', name: 'Great-West Lifeco Inc.', kind: 'stock' },
   { symbol: 'IFC.TO', name: 'Intact Financial Corp.', kind: 'stock' },
   { symbol: 'IAG.TO', name: 'iA Financial Corp.', kind: 'stock' },
+  { symbol: 'FFH.TO', name: 'Fairfax Financial Holdings Ltd.', kind: 'stock' },
+  { symbol: 'PWF.TO', name: 'Power Financial Corp.', kind: 'stock' },
+  { symbol: 'ONEX.TO', name: 'Onex Corp.', kind: 'stock' },
+  { symbol: 'IGM.TO', name: 'IGM Financial Inc.', kind: 'stock' },
+  { symbol: 'CIX.TO', name: 'CI Financial Corp.', kind: 'stock' },
+  { symbol: 'TRI.TO', name: 'Thomson Reuters Corp.', kind: 'stock' },
 
   // Energy
   { symbol: 'ENB.TO', name: 'Enbridge Inc.', kind: 'stock' },
@@ -41,6 +48,11 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'PPL.TO', name: 'Pembina Pipeline Corp.', kind: 'stock' },
   { symbol: 'ARX.TO', name: 'ARC Resources Ltd.', kind: 'stock' },
   { symbol: 'TOU.TO', name: 'Tourmaline Oil Corp.', kind: 'stock' },
+  { symbol: 'WCP.TO', name: 'Whitecap Resources Inc.', kind: 'stock' },
+  { symbol: 'MEG.TO', name: 'MEG Energy Corp.', kind: 'stock' },
+  { symbol: 'PEY.TO', name: 'Peyto Exploration & Development Corp.', kind: 'stock' },
+  { symbol: 'BTE.TO', name: 'Baytex Energy Corp.', kind: 'stock' },
+  { symbol: 'PKI.TO', name: 'Parkland Corp.', kind: 'stock' },
 
   // Materials / Mining
   { symbol: 'ABX.TO', name: 'Barrick Gold Corp.', kind: 'stock' },
@@ -51,6 +63,15 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'NTR.TO', name: 'Nutrien Ltd.', kind: 'stock' },
   { symbol: 'FM.TO', name: 'First Quantum Minerals Ltd.', kind: 'stock' },
   { symbol: 'CCO.TO', name: 'Cameco Corp.', kind: 'stock' },
+  { symbol: 'LUN.TO', name: 'Lundin Mining Corp.', kind: 'stock' },
+  { symbol: 'IVN.TO', name: 'Ivanhoe Mines Ltd.', kind: 'stock' },
+  { symbol: 'HBM.TO', name: 'Hudbay Minerals Inc.', kind: 'stock' },
+  { symbol: 'CG.TO', name: 'Centerra Gold Inc.', kind: 'stock' },
+  { symbol: 'PAAS.TO', name: 'Pan American Silver Corp.', kind: 'stock' },
+  { symbol: 'AGI.TO', name: 'Alamos Gold Inc.', kind: 'stock' },
+  { symbol: 'ELD.TO', name: 'Eldorado Gold Corp.', kind: 'stock' },
+  { symbol: 'WDO.TO', name: 'Wesdome Gold Mines Ltd.', kind: 'stock' },
+  { symbol: 'MX.TO', name: 'Methanex Corp.', kind: 'stock' },
 
   // Industrials
   { symbol: 'CNR.TO', name: 'Canadian National Railway Co.', kind: 'stock' },
@@ -60,6 +81,14 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'STN.TO', name: 'Stantec Inc.', kind: 'stock' },
   { symbol: 'WSP.TO', name: 'WSP Global Inc.', kind: 'stock' },
   { symbol: 'TIH.TO', name: 'Toromont Industries Ltd.', kind: 'stock' },
+  { symbol: 'GFL.TO', name: 'GFL Environmental Inc.', kind: 'stock' },
+  { symbol: 'EFN.TO', name: 'Element Fleet Management Corp.', kind: 'stock' },
+  { symbol: 'LNR.TO', name: 'Linamar Corp.', kind: 'stock' },
+  { symbol: 'SJ.TO', name: 'Stella-Jones Inc.', kind: 'stock' },
+  { symbol: 'CJT.TO', name: 'Cargojet Inc.', kind: 'stock' },
+  { symbol: 'NFI.TO', name: 'NFI Group Inc.', kind: 'stock' },
+  { symbol: 'RBA.TO', name: 'Ritchie Bros Auctioneers Inc.', kind: 'stock' },
+  { symbol: 'AC.TO', name: 'Air Canada', kind: 'stock' },
 
   // Telecom
   { symbol: 'BCE.TO', name: 'BCE Inc.', kind: 'stock' },
@@ -71,6 +100,8 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'MRU.TO', name: 'Metro Inc.', kind: 'stock' },
   { symbol: 'QSR.TO', name: 'Restaurant Brands International Inc.', kind: 'stock' },
   { symbol: 'SAP.TO', name: 'Saputo Inc.', kind: 'stock' },
+  { symbol: 'ATZ.TO', name: 'Aritzia Inc.', kind: 'stock' },
+  { symbol: 'MTY.TO', name: 'MTY Food Group Inc.', kind: 'stock' },
 
   // Technology
   { symbol: 'SHOP.TO', name: 'Shopify Inc.', kind: 'stock' },
@@ -79,6 +110,8 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'DSG.TO', name: 'Descartes Systems Group Inc.', kind: 'stock' },
   { symbol: 'KXS.TO', name: 'Kinaxis Inc.', kind: 'stock' },
   { symbol: 'LSPD.TO', name: 'Lightspeed Commerce Inc.', kind: 'stock' },
+  { symbol: 'ENGH.TO', name: 'Enghouse Systems Ltd.', kind: 'stock' },
+  { symbol: 'BB.TO', name: 'BlackBerry Ltd.', kind: 'stock' },
 
   // Utilities
   { symbol: 'FTS.TO', name: 'Fortis Inc.', kind: 'stock' },

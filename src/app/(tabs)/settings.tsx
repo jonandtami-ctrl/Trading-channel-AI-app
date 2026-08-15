@@ -145,7 +145,7 @@ export default function SettingsScreen() {
 
       <Text style={styles.sectionLabel}>Scan universe</Text>
       <View style={styles.card}>
-        <InfoRow icon="logo-bitcoin" label="Crypto" detail="139 established coins — live from Binance, refreshed every 60s. Best 10 shown." />
+        <InfoRow icon="logo-bitcoin" label="Crypto" detail="166 established coins — live from Binance, refreshed every 60s. Best 10 shown." />
         <InfoRow
           icon="business-outline"
           label="Stocks"
@@ -154,7 +154,7 @@ export default function SettingsScreen() {
         <InfoRow
           icon="flag-outline"
           label="TSX (Canada)"
-          detail="63 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
+          detail="96 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
         />
         <InfoRow icon="cash-outline" label="Price filter" detail="None — all qualifying picks are shown, any price" />
       </View>

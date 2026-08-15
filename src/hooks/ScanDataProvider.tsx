@@ -4,9 +4,10 @@ import { CRYPTO_SYMBOLS, STOCK_SYMBOLS } from '../lib/data/symbols';
 
 const CRYPTO_REFRESH_MS = 60 * 1000;
 // Twelve Data's free tier caps out at 800 credits/day, and the full stock
-// universe — S&P 500 + TSX (~347 symbols) — costs ~347 credits per scan.
-// Every 12 hours keeps the day's total (2 scans x 347 = 694 credits) under
-// budget, with a little headroom left for symbol-detail visits.
+// universe — S&P 500 + TSX (~380 symbols) — costs ~380 credits per scan.
+// Every 12 hours keeps the day's total (2 scans x 380 = 760 credits) under
+// budget, though the margin left for symbol-detail visits is thin now —
+// worth revisiting if the day's usage ever actually hits the cap.
 const STOCK_REFRESH_MS = 12 * 60 * 60 * 1000;
 
 interface ScanDataContextValue {
