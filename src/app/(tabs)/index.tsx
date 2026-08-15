@@ -113,7 +113,7 @@ export default function DashboardScreen() {
           <Ionicons name="pulse" size={28} color={colors.accent} />
           <Text style={styles.spinnerText}>Scanning crypto, the S&amp;P 500, &amp; the TSX…</Text>
           <Text style={styles.spinnerSubtext}>
-            First load checks ~546 tickers — the S&amp;P 500, TSX, and top crypto — usually just a few seconds.
+            First load checks ~430 tickers — the S&amp;P 500, TSX, and top 50 crypto — usually just a few seconds.
             Results fill in below as they come in.
           </Text>
         </View>

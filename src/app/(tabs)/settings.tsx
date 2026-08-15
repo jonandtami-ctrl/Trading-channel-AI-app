@@ -145,7 +145,7 @@ export default function SettingsScreen() {
 
       <Text style={styles.sectionLabel}>Scan universe</Text>
       <View style={styles.card}>
-        <InfoRow icon="logo-bitcoin" label="Crypto" detail="166 established coins — live from Binance, refreshed every 60s. Best 10 shown." />
+        <InfoRow icon="logo-bitcoin" label="Crypto" detail="Top 50 by market cap — live from Binance, refreshed every 60s. Best 10 shown." />
         <InfoRow
           icon="business-outline"
           label="Stocks"

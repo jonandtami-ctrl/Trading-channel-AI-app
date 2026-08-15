@@ -28,6 +28,6 @@ describe('symbol data', () => {
     expect(findSymbol('aapl')?.exchange).toBe('S&P 500');
     expect(findSymbol('ry.to')?.exchange).toBe('TSX');
     expect(findSymbol('ry.to')?.name).toContain('Royal Bank');
-    expect(CRYPTO_SYMBOLS.length).toBeGreaterThan(100);
+    expect(CRYPTO_SYMBOLS.length).toBe(50);
   });
 });
