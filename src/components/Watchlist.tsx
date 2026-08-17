@@ -18,12 +18,46 @@ function priceOf(result: ScanResult): string {
 const RISK_COLOR = { low: colors.green, medium: colors.amber, high: colors.red } as const;
 const STRENGTH_LABEL = { high: 'High', medium: 'Med', low: 'Low' } as const;
 
-function signalPill(result: ScanResult): {
+// The strict "buy" signal everywhere else in the app requires the NEOS
+// engine's full confirmation-candle + quality-score gate — calibrated for
+// a ~1-month swing entry, where waiting for that confirmation actually
+// matters. On a wide, ~1-year value-channel view (see topActivePicks) that
+// bar is a mismatch: a large cap sitting right at support IS the buy zone
+// for that timescale, so wideView reads the plan's raw channelState
+// instead of waiting on swing-trade confirmation.
+function wideViewPill(result: ScanResult): {
+  label: string;
+  color: string;
+  bg: string;
+  icon: keyof typeof Ionicons.glyphMap;
+} | null {
+  const state = result.tradePlan?.channelState;
+  if (state === 'bouncing_from_support' || state === 'at_support') {
+    return { label: 'BUY · At Support', color: colors.green, bg: `${colors.green}26`, icon: 'trending-up' };
+  }
+  if (state === 'channel_breakdown' || state === 'trending_below_channel') {
+    return { label: 'SELL · Breakdown', color: colors.red, bg: `${colors.red}26`, icon: 'trending-down' };
+  }
+  if (state === 'approaching_resistance' || state === 'testing_resistance') {
+    return { label: 'WATCH · Resistance', color: colors.amber, bg: `${colors.amber}26`, icon: 'eye' };
+  }
+  return null;
+}
+
+function signalPill(
+  result: ScanResult,
+  wideView?: boolean
+): {
   label: string;
   color: string;
   bg: string;
   icon: keyof typeof Ionicons.glyphMap;
 } {
+  if (wideView) {
+    const wide = wideViewPill(result);
+    if (wide) return wide;
+  }
+
   const detail = getSignalDetail(result);
   const has = (t: string) => result.alerts.some((a) => a.type === t);
 
@@ -61,6 +95,7 @@ export function Watchlist({
   names,
   horizontal,
   showChannelAge,
+  wideView,
 }: {
   results: ScanResult[];
   names: Record<string, string>;
@@ -68,6 +103,8 @@ export function Watchlist({
   horizontal?: boolean;
   /** Shows how long the displayed channel has persisted — meant for long-term value views, not swing signals. */
   showChannelAge?: boolean;
+  /** Reads the badge off the raw channel state instead of the swing-trade confirmation gate — see wideViewPill. */
+  wideView?: boolean;
 }) {
   if (results.length === 0) {
     return (
@@ -82,7 +119,7 @@ export function Watchlist({
     return (
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hRow}>
         {results.map((result) => {
-          const pill = signalPill(result);
+          const pill = signalPill(result, wideView);
           const primaryChannel = result.channels[0];
           return (
             <Link key={result.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: result.symbol } }} asChild>

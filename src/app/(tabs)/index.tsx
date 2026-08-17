@@ -192,7 +192,7 @@ export default function DashboardScreen() {
             color={colors.text}
             icon="ribbon-outline"
           />
-          <Watchlist results={topPicks} names={names} horizontal showChannelAge />
+          <Watchlist results={topPicks} names={names} horizontal showChannelAge wideView />
 
           <SectionHeader
             title="TSX Picks (CAD)"
@@ -200,7 +200,7 @@ export default function DashboardScreen() {
             color={colors.blue}
             icon="flag-outline"
           />
-          <Watchlist results={tsxPicks} names={names} horizontal showChannelAge />
+          <Watchlist results={tsxPicks} names={names} horizontal showChannelAge wideView />
 
           <SectionHeader title="Recent Alerts" color={colors.blue} icon="notifications" />
           <AlertsFeed alerts={allAlerts} limit={8} />
