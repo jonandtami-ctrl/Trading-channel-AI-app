@@ -4,6 +4,7 @@ import { detectChannels } from './channels';
 import { generateAlerts } from './alerts';
 import { computeBestTradePlan, type TradePlan } from './tradePlan';
 import { findStableChannel } from './stability';
+import { findSymbol } from './data/symbols';
 import type { Alert, Candle, ScanResult } from './types';
 
 // A large-cap stock genuinely takes longer to complete a support/resistance
@@ -89,12 +90,28 @@ export function getSignal(result: ScanResult): Signal {
   return null;
 }
 
-/** Filters results down to one signal bucket, nearest-to-actionable first. */
+// A SELL or WATCH call is about a position you might already hold, or are
+// just tracking — price doesn't affect whether it's worth showing. A BUY
+// is capital you'd actually put in today, so it's the one signal that
+// gets a per-share price ceiling. TSX names are CAD-priced but use the
+// same raw number — no FX conversion, same as the rest of the app.
+const MAX_BUY_PRICE_USD = 200;
+
+/** Filters results down to one signal bucket, nearest-to-actionable first. A 'buy' bucket also excludes anything priced at/above MAX_BUY_PRICE_USD a share. */
 export function bySignal(results: ScanResult[], signal: Signal, cap = Infinity): ScanResult[] {
   return results
     .filter((r) => getSignal(r) === signal)
+    .filter((r) => signal !== 'buy' || underMaxBuyPrice(r))
     .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
     .slice(0, cap);
+}
+
+/** True for crypto (no per-share price ceiling applies) or a stock/TSX result priced under MAX_BUY_PRICE_USD a share. */
+export function underMaxBuyPrice(result: ScanResult): boolean {
+  const last = result.candles[result.candles.length - 1];
+  if (!last) return false;
+  if (findSymbol(result.symbol)?.kind !== 'stock') return true;
+  return last.close < MAX_BUY_PRICE_USD;
 }
 
 /** Smallest current distance (as a fraction of price) from the last close to any alert's level. */

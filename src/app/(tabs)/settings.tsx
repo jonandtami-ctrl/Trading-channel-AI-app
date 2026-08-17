@@ -156,7 +156,11 @@ export default function SettingsScreen() {
           label="TSX (Canada)"
           detail="96 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
         />
-        <InfoRow icon="cash-outline" label="Price filter" detail="None — all qualifying picks are shown, any price" />
+        <InfoRow
+          icon="cash-outline"
+          label="Price filter"
+          detail="Stocks/TSX under $200/share for BUY calls and the 'to trade' rows — crypto and SELL/WATCH calls are unfiltered"
+        />
       </View>
 
       <Text style={styles.sectionLabel}>About</Text>

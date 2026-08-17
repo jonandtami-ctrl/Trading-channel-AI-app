@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getSignal,
+  bySignal,
   closestLevelDistance,
   classifyStrength,
   assessRisk,
@@ -8,6 +9,7 @@ import {
   channelReliabilityScore,
   mostReliableChannels,
   topActivePicks,
+  underMaxBuyPrice,
 } from '../scan';
 import type { TradePlan } from '../tradePlan';
 import type { Alert, Candle, Channel, Level, Pivot, ScanResult } from '../types';
@@ -140,6 +142,48 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
     expect(getSignal(resultWithPlan(makePlan({ channelState: 'mid_channel' })))).toBeNull();
     expect(getSignal(resultWithPlan(makePlan({ channelState: 'breakout_attempt' })))).toBeNull();
     expect(getSignal(resultWithPlan(makePlan({ channelState: 'confirmed_breakout' })))).toBeNull();
+  });
+});
+
+describe('underMaxBuyPrice', () => {
+  it('passes a stock priced under $200/share', () => {
+    const result = makeResult([], 150);
+    result.symbol = 'AAPL';
+    expect(underMaxBuyPrice(result)).toBe(true);
+  });
+
+  it('rejects a stock priced at or above $200/share', () => {
+    const result = makeResult([], 250);
+    result.symbol = 'AAPL';
+    expect(underMaxBuyPrice(result)).toBe(false);
+
+    const atCap = makeResult([], 200);
+    atCap.symbol = 'AAPL';
+    expect(underMaxBuyPrice(atCap)).toBe(false);
+  });
+
+  it('never rejects crypto, no matter the price', () => {
+    const result = makeResult([], 95000);
+    result.symbol = 'BTC';
+    expect(underMaxBuyPrice(result)).toBe(true);
+  });
+});
+
+describe('bySignal — buy bucket respects the price cap', () => {
+  it('excludes an otherwise-qualifying BUY priced at/above the cap', () => {
+    const cheap = makeResult([alert('bounce_support', 90)], 150);
+    cheap.symbol = 'AAPL';
+    const expensive = makeResult([alert('bounce_support', 90)], 250);
+    expensive.symbol = 'MSFT';
+
+    const buys = bySignal([cheap, expensive], 'buy');
+    expect(buys.map((r) => r.symbol)).toEqual(['AAPL']);
+  });
+
+  it('does not apply the price cap to sell or watch buckets', () => {
+    const expensive = makeResult([alert('breakdown', 300)], 350);
+    expensive.symbol = 'MSFT';
+    expect(bySignal([expensive], 'sell').map((r) => r.symbol)).toEqual(['MSFT']);
   });
 });
 

@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
-import { bySignal, mostReliableChannels, topActivePicks } from '../../lib/scan';
+import { bySignal, mostReliableChannels, topActivePicks, underMaxBuyPrice } from '../../lib/scan';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
@@ -82,11 +82,14 @@ export default function DashboardScreen() {
   // timescale that actually fits how a large-cap stock moves (see
   // topActivePicks/VALUE_MAX_SPAN_CANDLES), ranked by touch count and
   // containment. Uncapped — anything that clears the reliability bar
-  // shows up here, not just a fixed top handful.
-  const topPicks = topActivePicks(sp500Results);
+  // shows up here, not just a fixed top handful. These two rows are
+  // explicitly "to trade," so they respect the same per-share price
+  // ceiling as a BUY signal (see underMaxBuyPrice) even for a WATCH/SELL
+  // card — this is the pool of stocks actually worth entering.
+  const topPicks = topActivePicks(sp500Results.filter(underMaxBuyPrice));
   // Same idea, scoped to TSX — priced/settled in CAD, so cheaper to
   // actually trade from a Canadian brokerage than a US ticker.
-  const tsxPicks = topActivePicks(tsxResults);
+  const tsxPicks = topActivePicks(tsxResults.filter(underMaxBuyPrice));
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
