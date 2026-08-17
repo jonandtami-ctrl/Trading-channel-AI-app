@@ -12,6 +12,7 @@ export const TIMEFRAMES: Timeframe[] = [
   { label: '1D', days: 1 },
   { label: '1W', days: 7 },
   { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
 ];
 
 export const DEFAULT_TIMEFRAME = TIMEFRAMES[1]; // 1W
