@@ -3,6 +3,7 @@ import {
   realizedPnl,
   realizedPnlPct,
   unrealizedPnl,
+  unrealizedPnlPct,
   tradeYear,
   groupTradesByYear,
   tradesToCsv,
@@ -44,6 +45,18 @@ describe('unrealizedPnl', () => {
   it('computes gain/loss against a live price regardless of status', () => {
     const trade = makeTrade({ entryPrice: 50, quantity: 4 });
     expect(unrealizedPnl(trade, 60)).toBeCloseTo(40, 5);
+  });
+});
+
+describe('unrealizedPnlPct', () => {
+  it('computes the percentage move from entry to the live price', () => {
+    const trade = makeTrade({ entryPrice: 74.38, quantity: 1 });
+    expect(unrealizedPnlPct(trade, 80)).toBeCloseTo(7.556, 2);
+  });
+
+  it('is negative when the live price is below entry', () => {
+    const trade = makeTrade({ entryPrice: 100, quantity: 1 });
+    expect(unrealizedPnlPct(trade, 90)).toBeCloseTo(-10, 5);
   });
 });
 

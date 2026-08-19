@@ -23,6 +23,10 @@ export function unrealizedPnl(trade: Trade, currentPrice: number): number {
   return (currentPrice - trade.entryPrice) * trade.quantity;
 }
 
+export function unrealizedPnlPct(trade: Trade, currentPrice: number): number {
+  return ((currentPrice - trade.entryPrice) / trade.entryPrice) * 100;
+}
+
 /** Year a trade belongs to for grouping — closed trades group by exit year (when the gain/loss was realized), open trades by entry year. */
 export function tradeYear(trade: Trade): number {
   return new Date(trade.exitDate ?? trade.entryDate).getFullYear();

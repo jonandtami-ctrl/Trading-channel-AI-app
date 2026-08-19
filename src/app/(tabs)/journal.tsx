@@ -2,15 +2,22 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { groupTradesByYear, realizedPnl, realizedPnlPct, type Trade } from '../../lib/journal';
+import { groupTradesByYear, realizedPnl, realizedPnlPct, unrealizedPnl, unrealizedPnlPct, type Trade } from '../../lib/journal';
 import { loadTrades, deleteTrade, shareTradesCsv } from '../../lib/journalStorage';
 import { formatPrice } from '../../lib/format';
 import { findSymbol } from '../../lib/data/symbols';
+import { useScanData } from '../../hooks/ScanDataProvider';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
 export default function JournalScreen() {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const { crypto, stocks } = useScanData();
+  const latestBySymbol: Record<string, number> = {};
+  for (const r of [...Object.values(crypto.results), ...Object.values(stocks.results)]) {
+    const last = r.candles[r.candles.length - 1];
+    if (last) latestBySymbol[r.symbol] = last.close;
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -86,6 +93,10 @@ export default function JournalScreen() {
             {yearTrades.map((trade) => {
               const pnl = realizedPnl(trade);
               const pnlPct = realizedPnlPct(trade);
+              const currentPrice = latestBySymbol[trade.symbol];
+              const unrealized = trade.status === 'open' && currentPrice != null ? unrealizedPnl(trade, currentPrice) : null;
+              const unrealizedPct =
+                trade.status === 'open' && currentPrice != null ? unrealizedPnlPct(trade, currentPrice) : null;
               const kind = findSymbol(trade.symbol)?.kind === 'stock' ? 'stock' : 'crypto';
               return (
                 <Pressable key={trade.id} style={styles.card} onLongPress={() => handleDelete(trade.id)}>
@@ -120,6 +131,13 @@ export default function JournalScreen() {
                       {pnl >= 0 ? '+' : ''}
                       {formatPrice(pnl, 'stock')} ({pnlPct >= 0 ? '+' : ''}
                       {pnlPct.toFixed(1)}%)
+                    </Text>
+                  )}
+                  {unrealized != null && unrealizedPct != null && (
+                    <Text style={[styles.pnl, { color: unrealized >= 0 ? colors.green : colors.red }]}>
+                      {unrealized >= 0 ? '+' : ''}
+                      {formatPrice(unrealized, 'stock')} ({unrealizedPct >= 0 ? '+' : ''}
+                      {unrealizedPct.toFixed(1)}%) unrealized
                     </Text>
                   )}
                   <View style={styles.deleteHintRow}>
