@@ -2,38 +2,38 @@ import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useScanner } from '../../hooks/useScanner';
-import { ALL_SYMBOLS, findSymbol, type SymbolInfo } from '../../lib/data/symbols';
+import { useScanData } from '../../hooks/ScanDataProvider';
+import { ALL_SYMBOLS } from '../../lib/data/symbols';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
 import { Watchlist } from '../../components/Watchlist';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
-// Pinned stock symbols each cost a Twelve Data credit per refresh (see
-// ScanDataProvider) — 60s was fine for Binance-only crypto, but the same
-// cadence for stocks left open all day could add up, so this is slower.
-const REFRESH_MS = 5 * 60 * 1000;
 const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function PinnedScreen() {
-  const [symbolInfos, setSymbolInfos] = useState<SymbolInfo[]>([]);
+  const [symbols, setSymbols] = useState<string[]>([]);
   const [loadedOnce, setLoadedOnce] = useState(false);
+  // Reuses the same live scan every other screen reads from (dashboard,
+  // category screens) instead of running a separate scan on its own
+  // timer — that mismatch used to mean this tab could show a price up to
+  // 5 minutes stale while the symbol detail page (which fetches fresh on
+  // open) showed the current one for the same symbol.
+  const { crypto, stocks } = useScanData();
 
   useFocusEffect(
     useCallback(() => {
       Promise.all([loadPinnedSymbols(), loadTrades()]).then(([pinned, trades]) => {
         const openSymbols = trades.filter((t) => t.status === 'open').map((t) => t.symbol);
-        const symbols = Array.from(new Set([...pinned, ...openSymbols]));
-        setSymbolInfos(symbols.map(findSymbol).filter((s): s is SymbolInfo => !!s));
+        setSymbols(Array.from(new Set([...pinned, ...openSymbols])));
         setLoadedOnce(true);
       });
     }, [])
   );
 
-  // A pinned list is usually small, so scanning just these directly is fast —
-  // no need to wait on the full ~600-symbol dashboard scan to see them.
-  const { results, loading } = useScanner(symbolInfos, REFRESH_MS);
-  const scanResults = symbolInfos.map((s) => results[s.symbol]).filter(Boolean);
+  const resultsBySymbol = { ...crypto.results, ...stocks.results };
+  const scanResults = symbols.map((s) => resultsBySymbol[s]).filter(Boolean);
+  const loading = crypto.loading || stocks.loading;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -44,7 +44,7 @@ export default function PinnedScreen() {
         <View style={styles.titleTextWrap}>
           <Text style={styles.title}>Pinned & Open Positions</Text>
           <Text style={styles.subtitle}>
-            {symbolInfos.length} symbol{symbolInfos.length === 1 ? '' : 's'} you're tracking or actively trading
+            {symbols.length} symbol{symbols.length === 1 ? '' : 's'} you're tracking or actively trading
           </Text>
         </View>
       </View>
@@ -53,7 +53,7 @@ export default function PinnedScreen() {
         <View style={styles.empty}>
           <Text style={styles.emptyText}>Loading…</Text>
         </View>
-      ) : symbolInfos.length === 0 ? (
+      ) : symbols.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="pin-outline" size={22} color={colors.textDim} />
           <Text style={styles.emptyText}>
