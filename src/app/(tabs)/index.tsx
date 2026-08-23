@@ -90,6 +90,13 @@ export default function DashboardScreen() {
   // Same idea, scoped to TSX — priced/settled in CAD, so cheaper to
   // actually trade from a Canadian brokerage than a US ticker.
   const tsxPicks = topActivePicks(tsxResults.filter(underMaxBuyPrice));
+  // Crypto never had an equivalent row — it only ever appeared in "Most
+  // Reliable Channels" above, pooled together with ~380 stock/TSX symbols
+  // for a shared top-6 cap, so with only 50 crypto names it almost always
+  // lost out to stocks and never showed up there. This gives crypto its
+  // own wide-window row exactly like stocks/TSX get, so it's never crowded
+  // out by the much bigger stock universe.
+  const cryptoPicks = topActivePicks(cryptoResults);
 
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
@@ -188,6 +195,9 @@ export default function DashboardScreen() {
             icon="repeat"
           />
           <Watchlist results={mostReliable} names={names} horizontal />
+
+          <SectionHeader title="Crypto Picks" count={cryptoPicks.length} color={colors.text} icon="logo-bitcoin" />
+          <Watchlist results={cryptoPicks} names={names} horizontal showChannelAge wideView />
 
           <SectionHeader
             title="Active Channels to Trade"

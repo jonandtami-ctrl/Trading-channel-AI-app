@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS } from '../../lib/data/symbols';
-import { bySignal, mostReliableChannels } from '../../lib/scan';
+import { bySignal, mostReliableChannels, topActivePicks } from '../../lib/scan';
 import { resultsForCategory } from '../../lib/categorize';
 import { getCategoryMeta } from '../../constants/categories';
 import { Watchlist } from '../../components/Watchlist';
@@ -47,7 +47,15 @@ export default function CategoryScreen() {
   // well-touched channels exist. Show those regardless of current price
   // position instead of leaving the screen empty just because nothing
   // happens to be actionable this exact second.
-  const reliable = mostReliableChannels(results, CAP.reliable);
+  const shortWindowReliable = mostReliableChannels(results, CAP.reliable);
+  // Crypto in particular tends to move as a herd — on a day the whole
+  // market trends hard, every coin's tight ~1-month channel can break at
+  // once, so shortWindowReliable can legitimately be empty even though
+  // that's not a "no data" situation. Fall back to the same wide ~1-year
+  // window stocks/TSX use on the dashboard, which is far less likely to be
+  // wiped out by a single trending day.
+  const reliable = shortWindowReliable.length > 0 ? shortWindowReliable : topActivePicks(results, CAP.reliable);
+  const reliableIsWideView = shortWindowReliable.length === 0 && reliable.length > 0;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -103,7 +111,7 @@ export default function CategoryScreen() {
                 color={colors.text}
                 icon="repeat"
               />
-              <Watchlist results={reliable} names={names} horizontal />
+              <Watchlist results={reliable} names={names} horizontal wideView={reliableIsWideView} />
             </>
           )}
           {buys.length > 0 && (
