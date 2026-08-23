@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS } from '../../lib/data/symbols';
-import { bySignal } from '../../lib/scan';
+import { bySignal, mostReliableChannels } from '../../lib/scan';
 import { resultsForCategory } from '../../lib/categorize';
 import { getCategoryMeta } from '../../constants/categories';
 import { Watchlist } from '../../components/Watchlist';
@@ -12,7 +12,7 @@ import { SectionHeader } from '../../components/SectionHeader';
 import { LiveBadge } from '../../components/LiveBadge';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
-const CAP = { buy: 25, sell: 25, watchSupport: 15, watchResistance: 15 };
+const CAP = { buy: 25, sell: 25, watchSupport: 15, watchResistance: 15, reliable: 12 };
 const names = Object.fromEntries(ALL_SYMBOLS.map((s) => [s.symbol, s.name]));
 
 export default function CategoryScreen() {
@@ -41,6 +41,13 @@ export default function CategoryScreen() {
   const sells = bySignal(results, 'sell', CAP.sell);
   const watchSupport = bySignal(results, 'watch_support', CAP.watchSupport);
   const watchResistance = bySignal(results, 'watch_resistance', CAP.watchResistance);
+  // Buy/Sell/Watch only fire when price is *right at* a level — with a
+  // smaller universe (crypto especially, at 50 names) it's common for
+  // nothing to be there at a given moment even though plenty of good,
+  // well-touched channels exist. Show those regardless of current price
+  // position instead of leaving the screen empty just because nothing
+  // happens to be actionable this exact second.
+  const reliable = mostReliableChannels(results, CAP.reliable);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -79,7 +86,7 @@ export default function CategoryScreen() {
           <SectionHeader title="Stable Ranges" count={results.length} color={meta.color} icon={meta.icon} />
           <StableList results={results} names={names} />
         </>
-      ) : buys.length + sells.length + watchSupport.length + watchResistance.length === 0 ? (
+      ) : buys.length + sells.length + watchSupport.length + watchResistance.length + reliable.length === 0 ? (
         !loading && (
           <View style={styles.infoCard}>
             <Ionicons name="moon-outline" size={14} color={colors.textDim} />
@@ -88,6 +95,17 @@ export default function CategoryScreen() {
         )
       ) : (
         <>
+          {reliable.length > 0 && (
+            <>
+              <SectionHeader
+                title="Most Reliable Channels"
+                count={reliable.length}
+                color={colors.text}
+                icon="repeat"
+              />
+              <Watchlist results={reliable} names={names} horizontal />
+            </>
+          )}
           {buys.length > 0 && (
             <>
               <SectionHeader title="Buy Signals" count={buys.length} color={colors.green} icon="trending-up" />
