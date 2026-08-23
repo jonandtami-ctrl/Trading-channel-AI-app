@@ -230,7 +230,7 @@ export default function SymbolScreen() {
           );
         })
       ) : (
-        <CurrentTrend candles={visibleCandles} />
+        <CurrentTrend candles={visibleCandles} levels={visibleLevels} />
       )}
 
       <SectionHeader title="Alerts" color={colors.blue} />

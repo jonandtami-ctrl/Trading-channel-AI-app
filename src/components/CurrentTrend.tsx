@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
-import type { Candle } from '../lib/types';
+import type { Candle, Level } from '../lib/types';
 import { findPivots } from '../lib/pivots';
 import { classifyTrend, type TrendDirection } from '../lib/trend';
 import { cardShadow, colors, radius, spacing } from '../constants/theme';
@@ -34,12 +34,24 @@ const TREND_META: Record<TrendDirection, { icon: keyof typeof Ionicons.glyphMap;
 };
 
 /** Shown in place of a trade plan when there's no active channel — still says something about what price is actually doing. */
-export function CurrentTrend({ candles }: { candles: Candle[] }) {
+export function CurrentTrend({ candles, levels = [] }: { candles: Candle[]; levels?: Level[] }) {
   if (candles.length < 2) return null;
 
   const pivots = findPivots(candles, 5);
   const trend = classifyTrend(pivots);
   const meta = TREND_META[trend.direction];
+
+  // The chart above draws these same support/resistance levels as dashed
+  // "level forming" lines even when they haven't paired up into a channel
+  // detectChannels is willing to call active (touches too spread out, not
+  // contained tightly enough, etc). Saying "no active channel" with zero
+  // context reads as contradicting lines the user is looking at right
+  // above it — name what's actually going on instead.
+  const hasFormingRange = levels.some((l) => l.type === 'support') && levels.some((l) => l.type === 'resistance');
+  const subtitle = hasFormingRange ? 'Levels forming, not a confirmed channel yet' : 'No active channel right now';
+  const note = hasFormingRange
+    ? "The dashed lines above are real support/resistance touches — they just haven't lined up into a channel tight and recent enough (within about a month) to call it a confirmed swing setup yet."
+    : meta.note;
 
   const first = candles[0];
   const last = candles[candles.length - 1];
@@ -56,7 +68,7 @@ export function CurrentTrend({ candles }: { candles: Candle[] }) {
         </View>
         <View style={styles.headerText}>
           <Text style={[styles.title, { color: meta.color }]}>{trend.label}</Text>
-          <Text style={styles.subtitle}>No active channel right now</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
       </View>
 
@@ -73,7 +85,7 @@ export function CurrentTrend({ candles }: { candles: Candle[] }) {
         />
       </View>
 
-      <Text style={styles.note}>{meta.note}</Text>
+      <Text style={styles.note}>{note}</Text>
     </View>
   );
 }
