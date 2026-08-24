@@ -41,57 +41,98 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
 
   useEffect(() => {
     let cancelled = false;
+    // Reset once when the symbol set actually changes (or on first mount) —
+    // NOT inside run() itself. run() re-fires every refreshMs on the same
+    // symbol set, and wiping resultsRef/setResults there blanked every
+    // card on screen for as long as the re-scan took, symbol by symbol,
+    // before anything reappeared. For crypto that's a live ~50-symbol
+    // network round-trip every 60 seconds — on a slow or partially
+    // unreachable connection that window can run long enough to be the
+    // normal state you see, not a rare glitch, and it looks exactly like
+    // "nothing here" even though the previous scan's data was perfectly
+    // good a second earlier. Keep last-known-good results visible and
+    // overlay fresh ones as they land instead.
+    resultsRef.current = {};
+    setResults({});
 
+    let running = false;
     async function run() {
-      setLoading(true);
-      setScanned(0);
-      resultsRef.current = {};
-      setResults({});
+      // The interval and the visibility catch-up below can now both want to
+      // fire around the same time (e.g. the tab regains focus right as the
+      // interval was about to tick anyway) — without this guard that's two
+      // concurrent stock scans, which for Twelve Data means double-spending
+      // real credit budget for nothing.
+      if (running) return;
+      running = true;
+      try {
+        setLoading(true);
+        setScanned(0);
 
-      const stockSymbols = symbols.filter((s) => s.kind === 'stock');
-      const cryptoSymbols = symbols.filter((s) => s.kind !== 'stock');
+        const stockSymbols = symbols.filter((s) => s.kind === 'stock');
+        const cryptoSymbols = symbols.filter((s) => s.kind !== 'stock');
 
-      if (stockSymbols.length) {
-        const batch = await fetchStockBatch(stockSymbols);
-        if (cancelled) return;
-        for (const info of stockSymbols) {
-          const { candles, isLive } = batch[info.symbol];
-          resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
+        if (stockSymbols.length) {
+          const batch = await fetchStockBatch(stockSymbols);
+          if (cancelled) return;
+          for (const info of stockSymbols) {
+            const { candles, isLive } = batch[info.symbol];
+            resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
+          }
+          setResults({ ...resultsRef.current });
+          setScanned(stockSymbols.length);
         }
-        setResults({ ...resultsRef.current });
-        setScanned(stockSymbols.length);
+
+        for (let i = 0; i < cryptoSymbols.length; i += BATCH_SIZE) {
+          if (cancelled) return;
+          const batch = cryptoSymbols.slice(i, i + BATCH_SIZE);
+
+          await Promise.all(
+            batch.map(async (info) => {
+              try {
+                const { candles, isLive } = await fetchCandles(info.symbol);
+                resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
+              } catch {
+                // fetchCandles never throws in practice, but keep the scan resilient regardless
+              }
+            })
+          );
+
+          if (cancelled) return;
+          setResults({ ...resultsRef.current });
+          setScanned(stockSymbols.length + Math.min(i + BATCH_SIZE, cryptoSymbols.length));
+
+          if (i + BATCH_SIZE < cryptoSymbols.length) await sleep(BATCH_DELAY_MS);
+        }
+
+        if (!cancelled) {
+          setLoading(false);
+          lastRunAt = Date.now();
+        }
+      } finally {
+        running = false;
       }
+    }
 
-      for (let i = 0; i < cryptoSymbols.length; i += BATCH_SIZE) {
-        if (cancelled) return;
-        const batch = cryptoSymbols.slice(i, i + BATCH_SIZE);
-
-        await Promise.all(
-          batch.map(async (info) => {
-            try {
-              const { candles, isLive } = await fetchCandles(info.symbol);
-              resultsRef.current[info.symbol] = scanSymbol(info.symbol, candles, isLive);
-            } catch {
-              // fetchCandles never throws in practice, but keep the scan resilient regardless
-            }
-          })
-        );
-
-        if (cancelled) return;
-        setResults({ ...resultsRef.current });
-        setScanned(stockSymbols.length + Math.min(i + BATCH_SIZE, cryptoSymbols.length));
-
-        if (i + BATCH_SIZE < cryptoSymbols.length) await sleep(BATCH_DELAY_MS);
-      }
-
-      if (!cancelled) setLoading(false);
+    // A mobile browser tab (especially a backgrounded home-screen web app)
+    // can suspend JS timers for hours while the tab stays "open" in the
+    // background — setInterval doesn't reliably keep firing on its own
+    // schedule through that. Rather than leaving the dashboard showing
+    // whatever was last fetched before the app was backgrounded until the
+    // full refreshMs happens to elapse (which can take a long time to
+    // notice on a suspended tab), catch up immediately whenever the page
+    // becomes visible again if a refresh is actually due.
+    let lastRunAt = 0;
+    function handleVisibility() {
+      if (document.visibilityState === 'visible' && Date.now() - lastRunAt >= refreshMs) run();
     }
 
     run();
     const interval = setInterval(run, refreshMs);
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       cancelled = true;
       clearInterval(interval);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbolKey, refreshMs]);
