@@ -149,7 +149,7 @@ export default function SettingsScreen() {
         <InfoRow
           icon="business-outline"
           label="Stocks"
-          detail="285 S&P 500 names scanned across every sector, live from Twelve Data/Yahoo Finance and refreshed every 24 hours — ~150 widely recognizable ones are shown as picks/signals, the rest stay out of the way unless you've pinned or logged them"
+          detail="285 S&P 500 names scanned across every sector, live from Twelve Data/Yahoo Finance and refreshed every 24 hours — ~200 recognizable ones are shown as picks/signals, the rest stay out of the way unless you've pinned or logged them"
         />
         <InfoRow
           icon="flag-outline"

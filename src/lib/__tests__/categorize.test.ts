@@ -18,8 +18,8 @@ function makeResult(symbol: string, overrides: Partial<ScanResult> = {}): ScanRe
 
 describe('resultsForCategory — notable filtering', () => {
   it('excludes an S&P 500 constituent marked not-notable from the stocks category', () => {
-    // AVGO (Broadcom) is a real S&P 500 member marked notable: false in sp500.ts.
-    const obscure = makeResult('AVGO');
+    // AMAT (Applied Materials) is a real S&P 500 member marked notable: false in sp500.ts.
+    const obscure = makeResult('AMAT');
     const famous = makeResult('AAPL');
 
     const results = resultsForCategory('stocks', [], [obscure, famous]);
@@ -32,7 +32,7 @@ describe('resultsForCategory — notable filtering', () => {
   });
 
   it('also excludes a not-notable symbol from the stable-ranges category even with a real stability range', () => {
-    const stableButObscure = makeResult('AVGO', { stability: { support: 1, resistance: 2, widthPct: 100 } as any });
+    const stableButObscure = makeResult('AMAT', { stability: { support: 1, resistance: 2, widthPct: 100 } as any });
     expect(resultsForCategory('stable', [], [stableButObscure])).toEqual([]);
   });
 });
