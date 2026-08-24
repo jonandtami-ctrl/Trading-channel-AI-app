@@ -14,7 +14,7 @@ export interface CategoryMeta {
 export const CATEGORIES: CategoryMeta[] = [
   { key: 'crypto', title: 'Crypto', subtitle: 'Top 50 by market cap · Binance', icon: 'logo-bitcoin', color: colors.purple },
   { key: 'stocks', title: 'Stocks', subtitle: 'S&P 500 · Yahoo Finance / Twelve Data', icon: 'business-outline', color: colors.amber },
-  { key: 'tsx', title: 'TSX (Canada)', subtitle: '96 companies · CAD, no FX fees', icon: 'flag-outline', color: colors.blue },
+  { key: 'tsx', title: 'TSX (Canada)', subtitle: '95 companies · CAD, no FX fees', icon: 'flag-outline', color: colors.blue },
   { key: 'stable', title: 'Stable Ranges', subtitle: 'Long-term, low-volatility, going-nowhere', icon: 'shield-checkmark-outline', color: colors.green },
 ];
 

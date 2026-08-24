@@ -97,9 +97,10 @@ export function getSignal(result: ScanResult): Signal {
 // same raw number — no FX conversion, same as the rest of the app.
 const MAX_BUY_PRICE_USD = 200;
 
-/** Filters results down to one signal bucket, nearest-to-actionable first. A 'buy' bucket also excludes anything priced at/above MAX_BUY_PRICE_USD a share. */
+/** Filters results down to one signal bucket, nearest-to-actionable first. A 'buy' bucket also excludes anything priced at/above MAX_BUY_PRICE_USD a share. Never surfaces a symbol that fell back to demo data — a fabricated price/channel has no business being called a real trade signal. */
 export function bySignal(results: ScanResult[], signal: Signal, cap = Infinity): ScanResult[] {
   return results
+    .filter((r) => r.isLive)
     .filter((r) => getSignal(r) === signal)
     .filter((r) => signal !== 'buy' || underMaxBuyPrice(r))
     .sort((a, b) => closestLevelDistance(a) - closestLevelDistance(b))
@@ -181,10 +182,13 @@ const MIN_RELIABLE_TOUCHES = 5;
  * Symbols whose best channel is still active (not broken out) and has
  * bounced back and forth enough times to trust the pattern rather than a
  * channel that only just formed. Sorted most-touched first, ties broken by
- * containment (how cleanly price has stayed inside the band).
+ * containment (how cleanly price has stayed inside the band). Excludes
+ * demo-fallback results (see bySignal) — also used by topActivePicks, so
+ * this is the one place that needs the isLive check for both.
  */
 export function mostReliableChannels(results: ScanResult[], cap = Infinity): ScanResult[] {
   return results
+    .filter((r) => r.isLive)
     .filter((r) => r.channels[0]?.status === 'active' && channelReliabilityScore(r) >= MIN_RELIABLE_TOUCHES)
     .sort((a, b) => {
       const byTouches = channelReliabilityScore(b) - channelReliabilityScore(a);

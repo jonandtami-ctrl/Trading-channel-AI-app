@@ -43,7 +43,11 @@ export default function DashboardScreen() {
   // stays a pure S&P 500 view.
   const sp500Results = stockResults.filter((r) => findSymbol(r.symbol)?.exchange !== 'TSX');
   const tsxResults = stockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
-  const stableResults = stockResults.filter((r) => !!r.stability);
+  // isLive: false means this symbol never fetched real data — demo/synthetic
+  // candles can compute a "stable range" too, but it has no bearing on
+  // reality (a delisted or unreachable ticker, most likely) and shouldn't
+  // be counted here any more than it should show up in the category drill-down.
+  const stableResults = stockResults.filter((r) => !!r.stability && r.isLive);
 
   const allResultsBysymbol: Record<string, ScanResult> = { ...crypto.results, ...stocks.results };
   const keptResults = keepSymbols.map((s) => allResultsBysymbol[s]).filter(Boolean);

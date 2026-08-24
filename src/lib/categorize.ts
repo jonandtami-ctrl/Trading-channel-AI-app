@@ -12,6 +12,9 @@ export function resultsForCategory(category: Category, cryptoResults: ScanResult
     case 'tsx':
       return stockResults.filter((r) => findSymbol(r.symbol)?.exchange === 'TSX');
     case 'stable':
-      return stockResults.filter((r) => !!r.stability);
+      // A demo-fallback result (delisted ticker, unreachable data source,
+      // etc.) can still compute a "stable range" — it's just fabricated
+      // from synthetic candles with no relation to a real price.
+      return stockResults.filter((r) => !!r.stability && r.isLive);
   }
 }

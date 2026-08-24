@@ -187,6 +187,18 @@ describe('bySignal — buy bucket respects the price cap', () => {
   });
 });
 
+describe('bySignal — excludes demo-fallback results', () => {
+  it('never surfaces a symbol whose data came from demo fallback, even if it otherwise qualifies', () => {
+    const real = makeResult([alert('bounce_support', 90)], 100);
+    real.symbol = 'REAL';
+    const fake = makeResult([alert('bounce_support', 90)], 100);
+    fake.symbol = 'DELISTED';
+    fake.isLive = false;
+
+    expect(bySignal([real, fake], 'buy').map((r) => r.symbol)).toEqual(['REAL']);
+  });
+});
+
 describe('closestLevelDistance', () => {
   it('returns the smallest fractional distance to any alert level', () => {
     const result = makeResult([alert('approaching_resistance', 110), alert('approaching_support', 99)], 100);
@@ -296,6 +308,12 @@ describe('mostReliableChannels', () => {
       return r;
     });
     expect(mostReliableChannels(results, 2)).toHaveLength(2);
+  });
+
+  it('excludes a demo-fallback result even with a well-touched, active channel', () => {
+    const fake = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 6, resistanceTouches: 6 })]);
+    fake.isLive = false;
+    expect(mostReliableChannels([fake])).toEqual([]);
   });
 });
 

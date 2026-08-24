@@ -49,7 +49,6 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'ARX.TO', name: 'ARC Resources Ltd.', kind: 'stock' },
   { symbol: 'TOU.TO', name: 'Tourmaline Oil Corp.', kind: 'stock' },
   { symbol: 'WCP.TO', name: 'Whitecap Resources Inc.', kind: 'stock' },
-  { symbol: 'MEG.TO', name: 'MEG Energy Corp.', kind: 'stock' },
   { symbol: 'PEY.TO', name: 'Peyto Exploration & Development Corp.', kind: 'stock' },
   { symbol: 'BTE.TO', name: 'Baytex Energy Corp.', kind: 'stock' },
   { symbol: 'PKI.TO', name: 'Parkland Corp.', kind: 'stock' },
