@@ -9,6 +9,7 @@ import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
 import { Watchlist } from '../../components/Watchlist';
+import { SymbolSearch } from '../../components/SymbolSearch';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { LiveBadge } from '../../components/LiveBadge';
 import { Disclaimer } from '../../components/Disclaimer';
@@ -164,6 +165,8 @@ export default function DashboardScreen() {
             )}
             <Disclaimer compact />
           </View>
+
+          <SymbolSearch />
 
           <View style={styles.statsRow}>
             <StatTile icon="trending-up" label="Buys" value={buysTotal} color={colors.green} href="/signal/buy" />
