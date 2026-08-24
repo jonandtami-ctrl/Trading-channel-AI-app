@@ -44,15 +44,38 @@ export async function fetchCandles(symbol: string): Promise<CandleFetchResult> {
     } catch {
       // Twelve Data unavailable/unconfigured/budget exhausted — fall back to the Yahoo-proxy chain.
     }
-    try {
-      const candles = await fetchStockCandles(symbol, ANCHOR_YAHOO_RANGE);
-      return { candles, isLive: true };
-    } catch {
-      // fall through to demo data below
-    }
+    return fetchStockViaYahooOrDemo(symbol);
   }
 
   return { candles: generateDemoCandles(symbol, ANCHOR_DAYS), isLive: false };
+}
+
+async function fetchStockViaYahooOrDemo(symbol: string): Promise<CandleFetchResult> {
+  try {
+    const candles = await fetchStockCandles(symbol, ANCHOR_YAHOO_RANGE);
+    return { candles, isLive: true };
+  } catch {
+    return { candles: generateDemoCandles(symbol, ANCHOR_DAYS), isLive: false };
+  }
+}
+
+// If the primary batch call fails outright (network blip, budget
+// exhausted, worker cold start — anything), every symbol in the universe
+// falls through to this per-symbol fallback at once. Firing all ~380 of
+// those concurrently would blow straight through Twelve Data's
+// 8-requests/minute limit — the exact thing this whole batched function
+// exists to avoid in the first place — so only the first handful would
+// ever get a real Twelve Data retry; the rest would instantly rate-limit
+// and cascade to Yahoo (or demo, if that's struggling under the same
+// burst too), making the whole dashboard look wrong at once even though
+// each symbol individually still has a working fallback chain. Chunking
+// this fallback the same way the crypto scanner already does keeps each
+// wave small enough to actually succeed.
+const FALLBACK_CHUNK_SIZE = 25;
+const FALLBACK_CHUNK_DELAY_MS = 150;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -68,10 +91,12 @@ export async function fetchStockBatch(infos: SymbolInfo[]): Promise<Record<strin
   const result: Record<string, CandleFetchResult> = {};
 
   let batch: Record<string, Candle[]> = {};
+  let wholeBatchFailed = false;
   try {
     batch = await fetchTwelveDataDailyBatch(infos);
   } catch {
     // whole batch failed (unconfigured, network, budget exhausted) — every symbol falls through below
+    wholeBatchFailed = true;
   }
 
   const missing = infos.filter((info) => {
@@ -83,11 +108,24 @@ export async function fetchStockBatch(infos: SymbolInfo[]): Promise<Record<strin
     return true;
   });
 
-  await Promise.all(
-    missing.map(async (info) => {
-      result[info.symbol] = await fetchCandles(info.symbol);
-    })
-  );
+  // A handful of symbols missing from an otherwise-successful batch is
+  // cheap to retry individually against Twelve Data first (fetchCandles) —
+  // that's not enough concurrent requests to hit the rate limit. But if
+  // the whole batch call failed, `missing` is the entire universe, and
+  // retrying Twelve Data individually for all of them is both pointless
+  // (the 8/minute limiter will reject nearly all of them anyway) and
+  // harmful (see note above) — go straight to Yahoo instead.
+  const fetchMissing = wholeBatchFailed ? fetchStockViaYahooOrDemo : fetchCandles;
+
+  for (let i = 0; i < missing.length; i += FALLBACK_CHUNK_SIZE) {
+    const chunk = missing.slice(i, i + FALLBACK_CHUNK_SIZE);
+    await Promise.all(
+      chunk.map(async (info) => {
+        result[info.symbol] = await fetchMissing(info.symbol);
+      })
+    );
+    if (i + FALLBACK_CHUNK_SIZE < missing.length) await sleep(FALLBACK_CHUNK_DELAY_MS);
+  }
 
   return result;
 }
