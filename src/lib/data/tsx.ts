@@ -35,7 +35,6 @@ export const TSX_SYMBOLS: SymbolInfo[] = [
   { symbol: 'PWF.TO', name: 'Power Financial Corp.', kind: 'stock' },
   { symbol: 'ONEX.TO', name: 'Onex Corp.', kind: 'stock' },
   { symbol: 'IGM.TO', name: 'IGM Financial Inc.', kind: 'stock' },
-  { symbol: 'CIX.TO', name: 'CI Financial Corp.', kind: 'stock' },
   { symbol: 'TRI.TO', name: 'Thomson Reuters Corp.', kind: 'stock' },
 
   // Energy

@@ -154,7 +154,7 @@ export default function SettingsScreen() {
         <InfoRow
           icon="flag-outline"
           label="TSX (Canada)"
-          detail="95 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
+          detail="94 major Canadian companies — CAD-priced, no FX conversion needed. Same data source/cadence as Stocks."
         />
         <InfoRow
           icon="cash-outline"

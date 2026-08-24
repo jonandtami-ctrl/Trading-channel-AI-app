@@ -103,6 +103,7 @@ export const SP500_SYMBOLS: SymbolInfo[] = [
   { symbol: 'POOL', name: 'Pool Corporation', kind: 'stock' },
   { symbol: 'ULTA', name: 'Ulta Beauty Inc.', kind: 'stock' },
   { symbol: 'LVS', name: 'Las Vegas Sands Corp.', kind: 'stock' },
+  { symbol: 'DASH', name: 'DoorDash Inc.', kind: 'stock' },
   { symbol: 'RCL', name: 'Royal Caribbean Cruises Ltd.', kind: 'stock' },
 
   // Consumer Staples
