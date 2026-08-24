@@ -9,6 +9,15 @@ export interface SymbolInfo {
   kind: 'crypto' | 'stock';
   binancePair?: string; // e.g. BTCUSDT
   exchange?: Exchange;
+  /**
+   * false marks a real S&P 500 constituent that's accurate but obscure to
+   * a non-finance person — still scanned and still fully trackable if
+   * pinned or logged (so an existing real position never loses its price),
+   * just excluded from Browse/Buy/Sell/Watch/Picks/Stable-Ranges surfaces
+   * so those aren't dominated by names nobody's heard of. Undefined/true
+   * means it's eligible everywhere, same as before this flag existed.
+   */
+  notable?: boolean;
 }
 
 // Roughly the top 50 cryptocurrencies by market cap with an active
