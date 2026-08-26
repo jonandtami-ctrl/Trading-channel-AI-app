@@ -59,6 +59,7 @@ export function TradePlanCard({ plan, tradeSettings }: { plan: TradePlan; tradeS
         <Cell label="Resistance" value={price(plan.resistance)} />
         <Cell label="Setup type" value={plan.setupType} />
         <Cell label="Last touched" value={touchRecencyLabel(plan.lastTouchDaysAgo)} />
+        <Cell label="Proven cycles" value={cyclesLabel(plan.completedCycles, plan.cycleWindowDays)} />
         {plan.entryQuality && <Cell label="Entry quality" value={ENTRY_QUALITY_LABEL[plan.entryQuality]} />}
         <Cell label="Volume" value={`${VOLUME_LABEL[plan.volumeLevel]} (${plan.volumeRatio.toFixed(1)}×)`} />
         {plan.entryZoneLow != null && plan.entryZoneHigh != null && (
@@ -136,6 +137,11 @@ function touchRecencyLabel(daysAgo: number): string {
   if (daysAgo <= 0) return 'Today';
   if (daysAgo === 1) return '1 day ago';
   return `${daysAgo} days ago`;
+}
+
+function cyclesLabel(count: number, windowDays: number): string {
+  if (count === 0) return `None (${windowDays}d)`;
+  return `${count}× (${windowDays}d)`;
 }
 
 function scoreColor(score: number): string {

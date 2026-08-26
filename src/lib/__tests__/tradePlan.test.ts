@@ -50,6 +50,15 @@ describe('computeTradePlan — channel state detection', () => {
     expect(plan.finalStatusLabel).toContain('🟢');
   });
 
+  it('reports completed support->resistance cycles from the channel touch history', () => {
+    // baseChannel's touches alternate support(0) -> resistance(2) -> support(5) -> resistance(7) -> support(10) -> resistance(12): 3 full up-legs.
+    const channel = baseChannel(100, 110);
+    const candles: Candle[] = [c(103, { low: 99.9, close: 99.9 }), c(100, { low: 99.7, close: 100.0 }), c(100.6, { low: 99.8 }), c(101.2, { low: 100.3 })];
+    const plan = computeTradePlan('XYZ', candles, channel);
+    expect(plan.completedCycles).toBe(3);
+    expect(plan.cycleWindowDays).toBe(60);
+  });
+
   it('calls it AT_SUPPORT (not yet a confirmed bounce) when price hasn’t reversed', () => {
     const channel = baseChannel(100, 110);
     // Still declining into support, no reversal yet.

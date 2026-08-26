@@ -83,6 +83,8 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
       support: 95,
       resistance: 105,
       lastTouchDaysAgo: 0,
+      completedCycles: 0,
+      cycleWindowDays: 60,
       channelState: 'mid_channel',
       channelStateLabel: 'Mid Channel',
       setupType: 'None',
@@ -326,6 +328,36 @@ describe('mostReliableChannels', () => {
     const fake = makeResult([], 100, [makeChannel(90, 110, { supportTouches: 6, resistanceTouches: 6 })]);
     fake.isLive = false;
     expect(mostReliableChannels([fake])).toEqual([]);
+  });
+
+  it('ranks a channel with more completed support->resistance cycles above one with the same touch total but no cycles', () => {
+    // 3 support + 3 resistance touches, alternating sides — a genuine "bounced back and forth" channel.
+    const cycling = makeResult([], 100, [
+      {
+        support: { price: 90, type: 'support', touches: [0, 2, 4].map((t) => ({ index: 0, time: t, price: 90, type: 'low' as const })) },
+        resistance: { price: 110, type: 'resistance', touches: [1, 3, 5].map((t) => ({ index: 0, time: t, price: 110, type: 'high' as const })) },
+        widthPct: 20,
+        containmentPct: 90,
+        status: 'active',
+        lastTouchIndex: 0,
+      },
+    ]);
+    cycling.symbol = 'CYCLING';
+    // Same 3+3 touch total, same containment — but all support touches happened before any resistance touch, so it never actually round-tripped.
+    const flat = makeResult([], 100, [
+      {
+        support: { price: 90, type: 'support', touches: [0, 1, 2].map((t) => ({ index: 0, time: t, price: 90, type: 'low' as const })) },
+        resistance: { price: 110, type: 'resistance', touches: [3, 4, 5].map((t) => ({ index: 0, time: t, price: 110, type: 'high' as const })) },
+        widthPct: 20,
+        containmentPct: 90,
+        status: 'active',
+        lastTouchIndex: 0,
+      },
+    ]);
+    flat.symbol = 'FLAT';
+
+    const ranked = mostReliableChannels([flat, cycling]);
+    expect(ranked.map((r) => r.symbol)).toEqual(['CYCLING', 'FLAT']);
   });
 });
 

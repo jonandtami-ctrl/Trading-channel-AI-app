@@ -4,6 +4,7 @@ import { classifyTrend, trendScore, type TrendDirection } from './trend';
 import { classifyChannelDirection, channelDirectionWarning, type ChannelDirection } from './channelDirection';
 import { classifyVolume, volumeScore, type VolumeLevel } from './volumeAnalysis';
 import { detectSupportSweepReclaim, type SweepReclaimSignal } from './supportSweepReclaim';
+import { countChannelCycles } from './channelCycles';
 
 /**
  * Disciplined channel-trading analysis. Given a candidate channel, works
@@ -71,6 +72,10 @@ export interface TradePlan {
   resistance: number;
   /** Days between the most recent candle and this channel's last support/resistance touch — how current the levels actually are. */
   lastTouchDaysAgo: number;
+  /** How many times price has actually bounced from support and traveled to resistance within the window below — a channel that's genuinely cycled, not just two lines that fit the chart. */
+  completedCycles: number;
+  /** The window (in days) `completedCycles` was counted over. */
+  cycleWindowDays: number;
   channelState: ChannelState;
   channelStateLabel: string;
   setupType: string;
@@ -132,6 +137,7 @@ export function computeTradePlan(symbol: string, candles: Candle[], channel: Cha
   const channelState = determineChannelState(candles, channel);
   const lastTouchCandle = candles[Math.max(0, Math.min(channel.lastTouchIndex, candles.length - 1))];
   const lastTouchDaysAgo = Math.round((last.time - lastTouchCandle.time) / 86400);
+  const cycles = countChannelCycles(channel, candles);
   const width = resistance.price - support.price;
   const positionFromSupport = width > 0 ? (currentPrice - support.price) / width : 0.5;
 
@@ -180,6 +186,8 @@ export function computeTradePlan(symbol: string, candles: Candle[], channel: Cha
     support: support.price,
     resistance: resistance.price,
     lastTouchDaysAgo,
+    completedCycles: cycles.supportToResistanceCycles,
+    cycleWindowDays: cycles.windowDays,
     channelState,
     channelStateLabel: CHANNEL_STATE_LABELS[channelState],
     setupType: plan.setupType,
@@ -682,6 +690,7 @@ function computeSupportSweepReclaimPlan(
 
   const lastTouchCandle = candles[Math.max(0, Math.min(channel.lastTouchIndex, candles.length - 1))];
   const lastTouchDaysAgo = Math.round((last.time - lastTouchCandle.time) / 86400);
+  const cycles = countChannelCycles(channel, candles);
   const positionFromSupport = channelHeight > 0 ? (currentPrice - support.price) / channelHeight : 0.5;
   const entryQuality = classifyEntryQuality(positionFromSupport);
 
@@ -734,6 +743,8 @@ function computeSupportSweepReclaimPlan(
     support: support.price,
     resistance: resistance.price,
     lastTouchDaysAgo,
+    completedCycles: cycles.supportToResistanceCycles,
+    cycleWindowDays: cycles.windowDays,
     channelState: 'support_sweep_reclaim',
     channelStateLabel: CHANNEL_STATE_LABELS.support_sweep_reclaim,
     setupType: 'Support sweep reclaim',

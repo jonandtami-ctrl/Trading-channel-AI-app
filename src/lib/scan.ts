@@ -4,6 +4,7 @@ import { detectChannels } from './channels';
 import { generateAlerts } from './alerts';
 import { computeBestTradePlan, type TradePlan } from './tradePlan';
 import { findStableChannel } from './stability';
+import { countChannelCycles } from './channelCycles';
 import { findSymbol } from './data/symbols';
 import type { Alert, Candle, ScanResult } from './types';
 
@@ -179,19 +180,32 @@ export function channelReliabilityScore(result: ScanResult): number {
 // not just barely qualified.
 const MIN_RELIABLE_TOUCHES = 5;
 
+/** Genuine support -> resistance round trips within the last 60 days, for the best channel — see channelCycles.ts. */
+function channelCycleScore(result: ScanResult): number {
+  const channel = result.channels[0];
+  if (!channel) return 0;
+  return countChannelCycles(channel, result.candles).supportToResistanceCycles;
+}
+
 /**
  * Symbols whose best channel is still active (not broken out) and has
  * bounced back and forth enough times to trust the pattern rather than a
- * channel that only just formed. Sorted most-touched first, ties broken by
- * containment (how cleanly price has stayed inside the band). Excludes
- * demo-fallback results (see bySignal) — also used by topActivePicks, so
- * this is the one place that needs the isLive check for both.
+ * channel that only just formed. Ranked by completed support->resistance
+ * cycles first — a channel that's actually round-tripped 4 times is a
+ * proven pattern in a way raw touch count alone doesn't capture (5 touches
+ * all on the same side, never crossing, would pass the touch bar without
+ * ever having cycled). Touch count and containment remain as tie-breakers
+ * for channels with the same cycle count. Excludes demo-fallback results
+ * (see bySignal) — also used by topActivePicks, so this is the one place
+ * that needs the isLive check for both.
  */
 export function mostReliableChannels(results: ScanResult[], cap = Infinity): ScanResult[] {
   return results
     .filter((r) => r.isLive)
     .filter((r) => r.channels[0]?.status === 'active' && channelReliabilityScore(r) >= MIN_RELIABLE_TOUCHES)
     .sort((a, b) => {
+      const byCycles = channelCycleScore(b) - channelCycleScore(a);
+      if (byCycles !== 0) return byCycles;
       const byTouches = channelReliabilityScore(b) - channelReliabilityScore(a);
       if (byTouches !== 0) return byTouches;
       return b.channels[0].containmentPct - a.channels[0].containmentPct;
