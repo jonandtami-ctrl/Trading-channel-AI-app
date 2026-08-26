@@ -3,6 +3,7 @@ import { findPivots } from './pivots';
 import { classifyTrend, trendScore, type TrendDirection } from './trend';
 import { classifyChannelDirection, channelDirectionWarning, type ChannelDirection } from './channelDirection';
 import { classifyVolume, volumeScore, type VolumeLevel } from './volumeAnalysis';
+import { detectSupportSweepReclaim, type SweepReclaimSignal } from './supportSweepReclaim';
 
 /**
  * Disciplined channel-trading analysis. Given a candidate channel, works
@@ -17,6 +18,7 @@ import { classifyVolume, volumeScore, type VolumeLevel } from './volumeAnalysis'
 export type ChannelState =
   | 'at_support'
   | 'bouncing_from_support'
+  | 'support_sweep_reclaim'
   | 'mid_channel'
   | 'approaching_resistance'
   | 'testing_resistance'
@@ -33,6 +35,7 @@ export type EntryQuality = 'excellent' | 'good' | 'acceptable' | 'late' | 'poor'
 export type FinalStatus =
   | 'high_quality_setup'
   | 'confirmed_setup'
+  | 'support_sweep_reclaim_confirmed'
   | 'watch'
   | 'wait_for_confirmation'
   | 'breakout_attempt'
@@ -46,6 +49,7 @@ export type FinalStatus =
 export const FINAL_STATUS_META: Record<FinalStatus, { emoji: string; label: string }> = {
   high_quality_setup: { emoji: '🟢', label: 'HIGH-QUALITY SETUP' },
   confirmed_setup: { emoji: '🟢', label: 'CONFIRMED SETUP' },
+  support_sweep_reclaim_confirmed: { emoji: '🟢', label: 'SUPPORT SWEEP RECLAIM' },
   watch: { emoji: '🟡', label: 'WATCH' },
   wait_for_confirmation: { emoji: '🟡', label: 'WAIT FOR CONFIRMATION' },
   breakout_attempt: { emoji: '🟡', label: 'BREAKOUT ATTEMPT' },
@@ -102,6 +106,7 @@ const MAX_STOP_DISTANCE_PCT = 10;
 const CHANNEL_STATE_LABELS: Record<ChannelState, string> = {
   at_support: 'At Support',
   bouncing_from_support: 'Bouncing From Support',
+  support_sweep_reclaim: 'Support Sweep Reclaim',
   mid_channel: 'Mid Channel',
   approaching_resistance: 'Approaching Resistance',
   testing_resistance: 'Testing Resistance',
@@ -642,6 +647,130 @@ function computeFinalStatus(args: {
   };
 }
 
+// A confirmed sweep-reclaim is a stricter, more selective pattern than a
+// plain support touch (it demands proof the breakdown attempt failed, not
+// just a bounce) — worth a small bonus over the generic bounce's
+// confirmation score, on top of everything else the shared scoring
+// components already capture.
+const SWEEP_RECLAIM_CONFIRMATION_BONUS = 20;
+
+/**
+ * Builds a full TradePlan for a confirmed SUPPORT_SWEEP_RECLAIM setup
+ * directly from the already-fully-diagnosed signal, instead of running it
+ * back through determineChannelState/buildEntryPlan — that state machine
+ * is tuned for "touched support, closed a bit higher," which is exactly
+ * the pattern this setup is designed to NOT trigger on, and by the time a
+ * sweep has reclaimed and confirmed, price may already have moved far
+ * enough from support that the generic machine would misread it as
+ * mid_channel/no_trade instead of recognizing the setup that just played out.
+ */
+function computeSupportSweepReclaimPlan(
+  symbol: string,
+  candles: Candle[],
+  channel: Channel,
+  sweep: SweepReclaimSignal
+): TradePlan {
+  const last = candles[candles.length - 1];
+  const currentPrice = last.close;
+  const { support, resistance } = channel;
+  const channelHeight = resistance.price - support.price;
+
+  const pivots = findPivots(candles, 5);
+  const trend = classifyTrend(pivots);
+  const channelDirection = classifyChannelDirection(channel);
+  const volume = classifyVolume(candles, candles.length - 1);
+
+  const lastTouchCandle = candles[Math.max(0, Math.min(channel.lastTouchIndex, candles.length - 1))];
+  const lastTouchDaysAgo = Math.round((last.time - lastTouchCandle.time) / 86400);
+  const positionFromSupport = channelHeight > 0 ? (currentPrice - support.price) / channelHeight : 0.5;
+  const entryQuality = classifyEntryQuality(positionFromSupport);
+
+  // Stop sits just under the actual swept low, not a flat percentage off
+  // support — we know exactly where sellers were rejected, so that's the
+  // real invalidation point for this specific setup.
+  const stopLoss = sweep.sweepLow * 0.995;
+  const target1 = resistance.price;
+  const target2 = resistance.price + channelHeight * 0.25;
+  const riskRewardRatio = computeRiskReward(currentPrice, stopLoss, target1);
+
+  const qualityScore = Math.round(
+    Math.max(
+      0,
+      Math.min(
+        100,
+        channelQualityScore(channel) +
+          entryLocationScore(positionFromSupport) +
+          SWEEP_RECLAIM_CONFIRMATION_BONUS +
+          volumeScore(volume.level) +
+          trendScore(trend.direction) +
+          riskRewardScore(riskRewardRatio) +
+          marketStructureScore(currentPrice, resistance.price)
+      )
+    )
+  );
+
+  const warnings: string[] = [];
+  const directionWarning = channelDirectionWarning(channelDirection);
+  if (directionWarning) warnings.push(directionWarning);
+  if (riskRewardRatio != null && riskRewardRatio < 2) {
+    warnings.push('Risk/reward does not meet preferred criteria (below 1:2).');
+  }
+
+  const poorRiskReward = riskRewardRatio != null && riskRewardRatio < 1.5;
+  const finalStatus: FinalStatus = poorRiskReward ? 'poor_risk_reward' : 'support_sweep_reclaim_confirmed';
+  const reason = poorRiskReward
+    ? `Support swept and reclaimed with a confirmed bounce, but the risk/reward (${riskRewardRatio!.toFixed(1)}:1) falls short of the preferred 1:2 minimum.`
+    : `Price swept below support (${sweep.sweepDepthAtr.toFixed(2)} ATR below the line), failed to hold the breakdown, reclaimed the zone, and printed a bullish follow-through candle — buyers took control after sellers failed.`;
+
+  const stopPct = ((stopLoss - currentPrice) / currentPrice) * 100;
+  const potentialGainPct = ((target1 - currentPrice) / currentPrice) * 100;
+
+  return {
+    symbol,
+    currentPrice,
+    trend: trend.direction,
+    trendLabel: trend.label,
+    channelDirection,
+    support: support.price,
+    resistance: resistance.price,
+    lastTouchDaysAgo,
+    channelState: 'support_sweep_reclaim',
+    channelStateLabel: CHANNEL_STATE_LABELS.support_sweep_reclaim,
+    setupType: 'Support sweep reclaim',
+    entryZoneLow: support.price * 0.995,
+    entryZoneHigh: currentPrice,
+    confirmationNeeded: null,
+    stopLoss,
+    stopPct,
+    target1,
+    target2,
+    potentialGainPct,
+    riskRewardRatio,
+    volumeLevel: volume.level,
+    volumeRatio: volume.ratio,
+    qualityScore,
+    entryQuality,
+    warnings,
+    finalStatus,
+    finalStatusLabel: `${FINAL_STATUS_META[finalStatus].emoji} ${FINAL_STATUS_META[finalStatus].label}`,
+    reason,
+  };
+}
+
+/**
+ * The single entry point for "what's the plan for this channel" — checks
+ * for a confirmed SUPPORT_SWEEP_RECLAIM first and only falls back to the
+ * generic determineChannelState/buildEntryPlan machine when there isn't
+ * one. Used both for the best-of-all-channels dashboard classification
+ * below and directly by the symbol detail screen (which renders a plan per
+ * channel, not just the single best one) — a channel showing a confirmed
+ * sweep-reclaim needs to read the same way in both places.
+ */
+export function computeTradePlanForChannel(symbol: string, candles: Candle[], channel: Channel): TradePlan {
+  const sweep = detectSupportSweepReclaim(candles, channel);
+  return sweep ? computeSupportSweepReclaimPlan(symbol, candles, channel, sweep) : computeTradePlan(symbol, candles, channel);
+}
+
 /**
  * A symbol can have multiple channels detected at once; for dashboard-level
  * classification we want whichever one currently represents the best
@@ -649,6 +778,6 @@ function computeFinalStatus(args: {
  */
 export function computeBestTradePlan(symbol: string, candles: Candle[], channels: Channel[]): TradePlan | null {
   if (channels.length === 0) return null;
-  const plans = channels.map((channel) => computeTradePlan(symbol, candles, channel));
+  const plans = channels.map((channel) => computeTradePlanForChannel(symbol, candles, channel));
   return plans.reduce((best, plan) => (plan.qualityScore > best.qualityScore ? plan : best));
 }

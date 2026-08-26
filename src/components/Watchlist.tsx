@@ -32,6 +32,15 @@ function wideViewPill(result: ScanResult): {
   icon: keyof typeof Ionicons.glyphMap;
 } | null {
   const state = result.tradePlan?.channelState;
+  if (state === 'support_sweep_reclaim') {
+    // The sweep and reclaim are confirmed either way (that's what got the
+    // setup detected at all) — but a poor risk/reward still shouldn't read
+    // as a confident green BUY, same as everywhere else this app makes
+    // that call.
+    return result.tradePlan?.finalStatus === 'support_sweep_reclaim_confirmed'
+      ? { label: 'BUY · Sweep Reclaim', color: colors.green, bg: `${colors.green}26`, icon: 'trending-up' }
+      : { label: 'WATCH · Sweep Reclaim', color: colors.amber, bg: `${colors.amber}26`, icon: 'eye' };
+  }
   if (state === 'bouncing_from_support' || state === 'at_support') {
     return { label: 'BUY · At Support', color: colors.green, bg: `${colors.green}26`, icon: 'trending-up' };
   }
@@ -62,6 +71,9 @@ function signalPill(
   const has = (t: string) => result.alerts.some((a) => a.type === t);
 
   if (detail.signal === 'buy') {
+    if (result.tradePlan?.channelState === 'support_sweep_reclaim') {
+      return { label: 'BUY · Sweep Reclaim', color: colors.green, bg: `${colors.green}26`, icon: 'trending-up' };
+    }
     return {
       label: 'BUY · Bounce',
       color: colors.green,

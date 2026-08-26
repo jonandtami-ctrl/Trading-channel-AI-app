@@ -143,6 +143,18 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
     expect(getSignal(resultWithPlan(makePlan({ channelState: 'breakout_attempt' })))).toBeNull();
     expect(getSignal(resultWithPlan(makePlan({ channelState: 'confirmed_breakout' })))).toBeNull();
   });
+
+  it('calls a confirmed SUPPORT_SWEEP_RECLAIM a BUY', () => {
+    const confirmed = resultWithPlan(
+      makePlan({ channelState: 'support_sweep_reclaim', finalStatus: 'support_sweep_reclaim_confirmed' })
+    );
+    expect(getSignal(confirmed)).toBe('buy');
+  });
+
+  it('does not call SUPPORT_SWEEP_RECLAIM a BUY when its own risk/reward gate downgraded it', () => {
+    const poorRR = resultWithPlan(makePlan({ channelState: 'support_sweep_reclaim', finalStatus: 'poor_risk_reward' }));
+    expect(getSignal(poorRR)).toBeNull();
+  });
 });
 
 describe('underMaxBuyPrice', () => {

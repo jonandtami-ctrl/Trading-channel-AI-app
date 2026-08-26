@@ -42,7 +42,8 @@ export type AlertType =
   | 'bounce_support'
   | 'bounce_resistance'
   | 'breakout'
-  | 'breakdown';
+  | 'breakdown'
+  | 'support_sweep_reclaim';
 
 export interface Alert {
   symbol: string;

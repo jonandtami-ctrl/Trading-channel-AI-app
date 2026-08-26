@@ -85,6 +85,16 @@ export default function DashboardScreen() {
     .sort((a, b) => (b.tradePlan?.qualityScore ?? 0) - (a.tradePlan?.qualityScore ?? 0))
     .slice(0, TOP_PICKS_CAP);
 
+  // SUPPORT_SWEEP_RECLAIM — its own dedicated setup, deliberately stricter
+  // than a plain support bounce: price has to actually trade below support
+  // (a real sweep, ATR-bounded so it's a shakeout and not an invalidated
+  // channel), fail to keep falling, reclaim the zone, and print a bullish
+  // follow-through candle before this ever fires. Works for both stocks and
+  // crypto since it's driven off whatever channel a symbol already has.
+  const supportSweepPicks = allResults.filter(
+    (r) => r.tradePlan?.channelState === 'support_sweep_reclaim' && r.tradePlan.finalStatus === 'support_sweep_reclaim_confirmed'
+  );
+
   // Not "what's actionable right now" like Best Buys, but "what's proven
   // itself" — symbols whose channel has bounced back and forth enough
   // times to trust the pattern, regardless of where price sits in it today.
@@ -198,6 +208,14 @@ export default function DashboardScreen() {
               <Watchlist results={keptResults} names={names} />
             </>
           )}
+
+          <SectionHeader
+            title="Support Sweep Reclaim"
+            count={supportSweepPicks.length}
+            color={colors.text}
+            icon="return-down-forward-outline"
+          />
+          <Watchlist results={supportSweepPicks} names={names} horizontal wideView />
 
           <SectionHeader title="Best Buys Under $100" count={bestBuys.length} color={colors.text} icon="star" />
           <Watchlist results={bestBuys} names={names} horizontal />

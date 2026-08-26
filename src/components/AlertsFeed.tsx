@@ -6,6 +6,7 @@ import { colors, radius, spacing } from '../constants/theme';
 const TYPE_COLOR: Record<Alert['type'], string> = {
   breakout: colors.green,
   bounce_support: colors.green,
+  support_sweep_reclaim: colors.green,
   breakdown: colors.red,
   bounce_resistance: colors.red,
   approaching_support: colors.amber,

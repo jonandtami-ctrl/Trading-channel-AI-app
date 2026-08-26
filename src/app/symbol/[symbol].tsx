@@ -11,7 +11,7 @@ import { getSignal } from '../../lib/scan';
 import { recentLevels } from '../../lib/levels';
 import { tradingViewUrl } from '../../lib/tradingview';
 import { backtestChannel } from '../../lib/backtest';
-import { computeTradePlan } from '../../lib/tradePlan';
+import { computeTradePlanForChannel } from '../../lib/tradePlan';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
 import { loadPinnedSymbols, togglePin } from '../../lib/pins';
 import { unrealizedPnl, type Trade } from '../../lib/journal';
@@ -218,7 +218,7 @@ export default function SymbolScreen() {
       {result.channels.length > 0 ? (
         result.channels.map((channel, i) => {
           const backtest = backtestChannel(channel);
-          const plan = computeTradePlan(symbol, result.candles, channel);
+          const plan = computeTradePlanForChannel(symbol, result.candles, channel);
           return (
             <View key={i}>
               <TradePlanCard plan={plan} tradeSettings={tradeSettings} />

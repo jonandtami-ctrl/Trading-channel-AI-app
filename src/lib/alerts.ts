@@ -1,4 +1,5 @@
 import type { Alert, Candle, Channel } from './types';
+import { detectSupportSweepReclaim } from './supportSweepReclaim';
 
 const APPROACH_PCT = 1.5; // within 1.5% of a level counts as "approaching"
 const BOUNCE_LOOKBACK = 3; // candles to look back for a bounce reversal
@@ -58,6 +59,19 @@ export function generateAlerts(symbol: string, candles: Candle[], channels: Chan
     if (distToSupport >= 0 && distToSupport <= APPROACH_PCT) {
       alerts.push(
         makeAlert(symbol, 'approaching_support', last, support.price, `approaching support at ${fmt(support.price)}`)
+      );
+    }
+
+    const sweepReclaim = detectSupportSweepReclaim(candles, channel);
+    if (sweepReclaim) {
+      alerts.push(
+        makeAlert(
+          symbol,
+          'support_sweep_reclaim',
+          last,
+          support.price,
+          `swept below support at ${fmt(support.price)} and reclaimed it (${sweepReclaim.sweepDepthAtr.toFixed(2)} ATR sweep, confirmed)`
+        )
       );
     }
 

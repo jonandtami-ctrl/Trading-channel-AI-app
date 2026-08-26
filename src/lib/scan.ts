@@ -62,6 +62,7 @@ const GREEN_STATUSES: TradePlan['finalStatus'][] = ['high_quality_setup', 'confi
 
 /** Reads a call straight off a trade plan — the plan already encodes confirmation, quality, and risk/reward. */
 function signalFromTradePlan(plan: TradePlan): Signal {
+  if (plan.channelState === 'support_sweep_reclaim' && plan.finalStatus === 'support_sweep_reclaim_confirmed') return 'buy';
   if (plan.channelState === 'bouncing_from_support' && GREEN_STATUSES.includes(plan.finalStatus)) return 'buy';
   if (plan.channelState === 'channel_breakdown' || plan.channelState === 'trending_below_channel') return 'sell';
   if (plan.channelState === 'at_support') return 'watch_support';

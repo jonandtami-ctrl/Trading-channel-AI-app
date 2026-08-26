@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeTradePlan } from '../tradePlan';
+import { computeTradePlan, computeBestTradePlan } from '../tradePlan';
 import type { Candle, Channel, Pivot } from '../types';
 
 function c(close: number, overrides: Partial<Candle> = {}): Candle {
@@ -188,6 +188,37 @@ describe('computeTradePlan — runaway stop distance once price has extended too
     expect(plan.setupType).toBe('None');
     expect(plan.stopLoss).toBeNull();
     expect(plan.confirmationNeeded).toContain('too far');
+  });
+});
+
+describe('computeBestTradePlan — SUPPORT_SWEEP_RECLAIM setup', () => {
+  it('picks the dedicated sweep-reclaim plan over the generic bounce reading for the same channel', () => {
+    const channel = baseChannel(100, 120);
+    const baseline: Candle[] = Array.from({ length: 30 }, () => c(105, { open: 105, high: 106, low: 104 }));
+    const candles: Candle[] = [
+      ...baseline,
+      c(99, { open: 101, high: 101.5, low: 98 }), // sweep below support
+      c(101.2, { open: 99.5, high: 102, low: 100.5 }), // reclaim: closes back above support
+      c(103, { open: 101.5, high: 103.5, low: 101 }), // confirmation: bullish, closes higher than reclaim
+    ];
+
+    const plan = computeBestTradePlan('XYZ', candles, [channel]);
+    expect(plan).not.toBeNull();
+    expect(plan!.channelState).toBe('support_sweep_reclaim');
+    expect(plan!.finalStatus).toBe('support_sweep_reclaim_confirmed');
+    expect(plan!.finalStatusLabel).toContain('🟢');
+    // Stop sits just under the actual swept low (98), not the generic flat support*0.98 (98) — anchored to real structure.
+    expect(plan!.stopLoss).toBeLessThan(98);
+    expect(plan!.stopLoss).toBeGreaterThan(96);
+    expect(plan!.target1).toBe(120);
+    expect(plan!.riskRewardRatio).toBeGreaterThan(1);
+  });
+
+  it('falls back to the generic reading when no sweep-reclaim sequence is present', () => {
+    const channel = baseChannel(100, 110);
+    const candles: Candle[] = [c(103, { low: 99.9, close: 99.9 }), c(100, { low: 99.7, close: 100.0 }), c(100.6, { low: 99.8 }), c(101.2, { low: 100.3 })];
+    const plan = computeBestTradePlan('XYZ', candles, [channel]);
+    expect(plan!.channelState).toBe('bouncing_from_support');
   });
 });
 
