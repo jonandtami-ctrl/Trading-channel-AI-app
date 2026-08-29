@@ -43,7 +43,10 @@ export function StableList({ results, names }: { results: ScanResult[]; names: R
                 </Text>
               </View>
               <View style={styles.right}>
-                <Text style={styles.price}>{last ? formatPrice(last.close, kind) : '—'}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.price}>{last ? formatPrice(last.close, kind) : '—'}</Text>
+                  {!result.isLive && <Text style={styles.demoTag}>DEMO</Text>}
+                </View>
                 <View style={styles.pill}>
                   <Ionicons name="shield-checkmark-outline" size={11} color={colors.green} />
                   <Text style={styles.pillText}>Stable range</Text>
@@ -107,10 +110,21 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 6,
   },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   price: {
     color: colors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  demoTag: {
+    color: colors.amber,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   pill: {
     flexDirection: 'row',

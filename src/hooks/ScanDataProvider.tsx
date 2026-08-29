@@ -38,7 +38,12 @@ const ScanDataContext = createContext<ScanDataContextValue | null>(null);
  */
 export function ScanDataProvider({ children }: { children: ReactNode }) {
   const crypto = useScanner(CRYPTO_SYMBOLS, CRYPTO_REFRESH_MS);
-  const stocks = useScanner(STOCK_SYMBOLS, STOCK_REFRESH_MS);
+  // Cached so reopening the app later the same day reuses this morning's
+  // real scan instead of spending another ~380 credits of the shared daily
+  // Twelve Data budget on a redundant fetch — see the cacheKey doc on
+  // useScanner for why that matters here specifically (crypto has no such
+  // budget, so it doesn't need this).
+  const stocks = useScanner(STOCK_SYMBOLS, STOCK_REFRESH_MS, 'stocks');
   return <ScanDataContext.Provider value={{ crypto, stocks }}>{children}</ScanDataContext.Provider>;
 }
 

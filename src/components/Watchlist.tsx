@@ -148,7 +148,10 @@ export function Watchlist({
                   {names[result.symbol] ?? ''}
                 </Text>
                 <View style={styles.hBottomRow}>
-                  <Text style={styles.hPrice}>{priceOf(result)}</Text>
+                  <View style={styles.hPriceRow}>
+                    <Text style={styles.hPrice}>{priceOf(result)}</Text>
+                    {!result.isLive && <Text style={styles.demoTag}>DEMO</Text>}
+                  </View>
                   <Text style={[styles.hPillText, { color: pill.color }]} numberOfLines={1}>
                     {pill.label}
                   </Text>
@@ -187,7 +190,10 @@ export function Watchlist({
                 </View>
               )}
               <View style={styles.right}>
-                <Text style={styles.price}>{priceOf(result)}</Text>
+                <View style={styles.priceRow}>
+                  <Text style={styles.price}>{priceOf(result)}</Text>
+                  {!result.isLive && <Text style={styles.demoTag}>DEMO</Text>}
+                </View>
                 <View style={[styles.pill, { backgroundColor: pill.bg }]}>
                   <Ionicons name={pill.icon} size={11} color={pill.color} />
                   <Text style={[styles.pillText, { color: pill.color }]}>{pill.label}</Text>
@@ -256,10 +262,21 @@ const styles = StyleSheet.create({
     width: 68,
     marginRight: spacing.sm,
   },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   price: {
     color: colors.text,
     fontSize: 14,
     fontWeight: '600',
+  },
+  demoTag: {
+    color: colors.amber,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   pill: {
     flexDirection: 'row',
@@ -320,6 +337,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     marginTop: 6,
     gap: 2,
+  },
+  hPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   hPrice: {
     color: colors.text,

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { fetchCandles, fetchStockBatch } from '../lib/data/fetch';
 import { scanSymbol } from '../lib/scan';
+import { loadScanCache, saveScanCache } from '../lib/scanCache';
 import type { ScanResult } from '../lib/types';
 import type { SymbolInfo } from '../lib/data/symbols';
 
@@ -31,8 +32,18 @@ function sleep(ms: number) {
  * can refresh far more often than a full stock/ETF scan without hammering
  * anything. fetchCandles/fetchStockBatch always analyze a fixed, generous
  * history regardless of what a chart happens to be displaying.
+ *
+ * cacheKey, when given, persists results to a durable cache after each
+ * successful run and reuses them on mount if they're still within
+ * refreshMs — without this, every fresh app open/reload starts a brand new
+ * scan regardless of how recently one already ran, which for the stock
+ * universe (its own daily Twelve Data credit budget, see twelvedata.ts)
+ * means a couple of same-day reopens can exhaust the whole day's real-data
+ * budget, silently collapsing most stocks to demo fallback for the rest of
+ * the day. Omit it for cheap-to-refetch scans (crypto, single-symbol detail)
+ * where this isn't a real concern.
  */
-export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS): ScannerState {
+export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_REFRESH_MS, cacheKey?: string): ScannerState {
   const [results, setResults] = useState<Record<string, ScanResult>>({});
   const [loading, setLoading] = useState(true);
   const [scanned, setScanned] = useState(0);
@@ -107,6 +118,7 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
         if (!cancelled) {
           setLoading(false);
           lastRunAt = Date.now();
+          if (cacheKey) saveScanCache(cacheKey, resultsRef.current, lastRunAt, symbolKey);
         }
       } finally {
         running = false;
@@ -126,16 +138,38 @@ export function useScanner(symbols: SymbolInfo[], refreshMs: number = DEFAULT_RE
       if (document.visibilityState === 'visible' && Date.now() - lastRunAt >= refreshMs) run();
     }
 
-    run();
-    const interval = setInterval(run, refreshMs);
-    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', handleVisibility);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    function armInterval() {
+      interval = setInterval(run, refreshMs);
+      if (typeof document !== 'undefined') document.addEventListener('visibilitychange', handleVisibility);
+    }
+
+    async function start() {
+      if (cacheKey) {
+        const cached = await loadScanCache(cacheKey);
+        if (cancelled) return;
+        if (cached && cached.symbolKey === symbolKey && Date.now() - cached.fetchedAt < refreshMs) {
+          resultsRef.current = cached.results;
+          setResults(cached.results);
+          setLoading(false);
+          setScanned(symbols.length);
+          lastRunAt = cached.fetchedAt;
+          armInterval();
+          return;
+        }
+      }
+      run();
+      armInterval();
+    }
+
+    start();
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibility);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbolKey, refreshMs]);
+  }, [symbolKey, refreshMs, cacheKey]);
 
   return { results, loading, scanned, total: symbols.length };
 }
