@@ -38,14 +38,7 @@ export default function DashboardScreen() {
   );
 
   const cryptoResults = Object.values(crypto.results);
-  // A handful of real S&P 500 constituents are obscure enough that showing
-  // them as a "pick" just buries the recognizable names under tickers
-  // nobody's heard of (see the notable doc comment on SymbolInfo) — every
-  // browse/discovery view on this screen is built from this filtered set.
-  // Pinned/logged positions deliberately read straight from the raw scan
-  // below instead, so an existing real position never loses its price just
-  // because its symbol isn't "notable."
-  const stockResults = Object.values(stocks.results).filter((r) => findSymbol(r.symbol)?.notable !== false);
+  const stockResults = Object.values(stocks.results);
   // TSX names are scanned alongside the S&P 500 but get their own browse
   // category and dashboard row — split them out so the "Stocks" tile/row
   // stays a pure S&P 500 view.
@@ -94,6 +87,17 @@ export default function DashboardScreen() {
   const supportSweepPicks = allResults.filter(
     (r) => r.tradePlan?.channelState === 'support_sweep_reclaim' && r.tradePlan.finalStatus === 'support_sweep_reclaim_confirmed'
   );
+
+  // The strict BUY bar (see signalFromTradePlan) intentionally won't fire
+  // until a bounce off support is actually confirmed — but that means
+  // nothing shows up here until the moment it qualifies, with no visibility
+  // into what's building toward one. This surfaces the pipeline: symbols
+  // currently sitting right at support, not yet confirmed, so there's
+  // always a next-candidates list to watch even when today's confirmed BUY
+  // count is thin.
+  const approachingSupport = bySignal(allResults, 'watch_support')
+    .sort((a, b) => (b.tradePlan?.qualityScore ?? 0) - (a.tradePlan?.qualityScore ?? 0))
+    .slice(0, TOP_PICKS_CAP);
 
   // Not "what's actionable right now" like Best Buys, but "what's proven
   // itself" — symbols whose channel has bounced back and forth enough
@@ -216,6 +220,14 @@ export default function DashboardScreen() {
             icon="return-down-forward-outline"
           />
           <Watchlist results={supportSweepPicks} names={names} horizontal wideView />
+
+          <SectionHeader
+            title="Approaching Support"
+            count={approachingSupport.length}
+            color={colors.amber}
+            icon="eye-outline"
+          />
+          <Watchlist results={approachingSupport} names={names} horizontal />
 
           <SectionHeader title="Best Buys Under $100" count={bestBuys.length} color={colors.text} icon="star" />
           <Watchlist results={bestBuys} names={names} horizontal />

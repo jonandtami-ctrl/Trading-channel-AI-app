@@ -16,23 +16,30 @@ function makeResult(symbol: string, overrides: Partial<ScanResult> = {}): ScanRe
   };
 }
 
-describe('resultsForCategory — notable filtering', () => {
-  it('excludes an S&P 500 constituent marked not-notable from the stocks category', () => {
-    // AMAT (Applied Materials) is a real S&P 500 member marked notable: false in sp500.ts.
+describe('resultsForCategory', () => {
+  it('includes every scanned S&P 500 constituent in the stocks category, not just recognizable names', () => {
+    // AMAT (Applied Materials) is a real but less well-known S&P 500 member — it should still show up as a buy/sell/watch candidate.
     const obscure = makeResult('AMAT');
     const famous = makeResult('AAPL');
 
     const results = resultsForCategory('stocks', [], [obscure, famous]);
-    expect(results.map((r) => r.symbol)).toEqual(['AAPL']);
+    expect(results.map((r) => r.symbol)).toEqual(['AMAT', 'AAPL']);
   });
 
-  it('never excludes a symbol from crypto results (no notable flag applies there)', () => {
+  it('never excludes a symbol from crypto results', () => {
     const btc = makeResult('BTC');
     expect(resultsForCategory('crypto', [btc], [])).toEqual([btc]);
   });
 
-  it('also excludes a not-notable symbol from the stable-ranges category even with a real stability range', () => {
-    const stableButObscure = makeResult('AMAT', { stability: { support: 1, resistance: 2, widthPct: 100 } as any });
-    expect(resultsForCategory('stable', [], [stableButObscure])).toEqual([]);
+  it('includes a lesser-known symbol in the stable-ranges category when it has a real stability range', () => {
+    const stableObscure = makeResult('AMAT', { stability: { support: 1, resistance: 2, widthPct: 100 } as any });
+    expect(resultsForCategory('stable', [], [stableObscure])).toEqual([stableObscure]);
+  });
+
+  it('splits TSX symbols from the rest by exchange', () => {
+    const shop = makeResult('SHOP.TO');
+    const aapl = makeResult('AAPL');
+    expect(resultsForCategory('tsx', [], [shop, aapl]).map((r) => r.symbol)).toEqual(['SHOP.TO']);
+    expect(resultsForCategory('stocks', [], [shop, aapl]).map((r) => r.symbol)).toEqual(['AAPL']);
   });
 });

@@ -160,18 +160,18 @@ describe('getSignal — with a trade plan attached, the plan wins over raw alert
 });
 
 describe('underMaxBuyPrice', () => {
-  it('passes a stock priced under $200/share', () => {
+  it('passes a stock priced under $1000/share', () => {
     const result = makeResult([], 150);
     result.symbol = 'AAPL';
     expect(underMaxBuyPrice(result)).toBe(true);
   });
 
-  it('rejects a stock priced at or above $200/share', () => {
-    const result = makeResult([], 250);
+  it('rejects a stock priced at or above $1000/share', () => {
+    const result = makeResult([], 1200);
     result.symbol = 'AAPL';
     expect(underMaxBuyPrice(result)).toBe(false);
 
-    const atCap = makeResult([], 200);
+    const atCap = makeResult([], 1000);
     atCap.symbol = 'AAPL';
     expect(underMaxBuyPrice(atCap)).toBe(false);
   });
@@ -187,7 +187,7 @@ describe('bySignal — buy bucket respects the price cap', () => {
   it('excludes an otherwise-qualifying BUY priced at/above the cap', () => {
     const cheap = makeResult([alert('bounce_support', 90)], 150);
     cheap.symbol = 'AAPL';
-    const expensive = makeResult([alert('bounce_support', 90)], 250);
+    const expensive = makeResult([alert('bounce_support', 90)], 1200);
     expensive.symbol = 'MSFT';
 
     const buys = bySignal([cheap, expensive], 'buy');

@@ -95,9 +95,12 @@ export function getSignal(result: ScanResult): Signal {
 // A SELL or WATCH call is about a position you might already hold, or are
 // just tracking — price doesn't affect whether it's worth showing. A BUY
 // is capital you'd actually put in today, so it's the one signal that
-// gets a per-share price ceiling. TSX names are CAD-priced but use the
-// same raw number — no FX conversion, same as the rest of the app.
-const MAX_BUY_PRICE_USD = 200;
+// gets a per-share price ceiling — but it only needs to be high enough to
+// rule out truly impractical per-share prices, not to exclude ordinary
+// blue-chip/bank stocks (a $200 cap was quietly dropping names like
+// CM.TO). TSX names are CAD-priced but use the same raw number — no FX
+// conversion, same as the rest of the app.
+const MAX_BUY_PRICE_USD = 1000;
 
 /** Filters results down to one signal bucket, nearest-to-actionable first. A 'buy' bucket also excludes anything priced at/above MAX_BUY_PRICE_USD a share. Never surfaces a symbol that fell back to demo data — a fabricated price/channel has no business being called a real trade signal. */
 export function bySignal(results: ScanResult[], signal: Signal, cap = Infinity): ScanResult[] {
