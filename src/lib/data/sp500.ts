@@ -83,6 +83,7 @@ export const SP500_SYMBOLS: SymbolInfo[] = [
   { symbol: 'SBUX', name: 'Starbucks Corporation', kind: 'stock' },
   { symbol: 'TJX', name: 'TJX Companies Inc.', kind: 'stock' },
   { symbol: 'BKNG', name: 'Booking Holdings Inc.', kind: 'stock' },
+  { symbol: 'UBER', name: 'Uber Technologies Inc.', kind: 'stock' },
   { symbol: 'ORLY', name: "O'Reilly Automotive Inc.", kind: 'stock' },
   { symbol: 'MAR', name: 'Marriott International Inc.', kind: 'stock' },
   { symbol: 'GM', name: 'General Motors Co.', kind: 'stock' },

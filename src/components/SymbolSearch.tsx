@@ -30,7 +30,18 @@ export function SymbolSearch() {
       {query.length > 0 && (
         <View style={styles.results}>
           {results.length === 0 ? (
-            <Text style={styles.emptyText}>No symbol matches &quot;{query}&quot;.</Text>
+            <View>
+              <Text style={styles.emptyText}>No symbol matches &quot;{query}&quot;.</Text>
+              <Link href={{ pathname: '/symbol/[symbol]', params: { symbol: query.trim().toUpperCase() } }} asChild>
+                <Pressable style={styles.manualRow}>
+                  <View>
+                    <Text style={styles.resultSymbol}>Go to {query.trim().toUpperCase()}</Text>
+                    <Text style={styles.resultName}>Not in our list — try it directly, live data permitting.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={colors.textDim} />
+                </Pressable>
+              </Link>
+            </View>
           ) : (
             results.map((s) => (
               <Link key={s.symbol} href={{ pathname: '/symbol/[symbol]', params: { symbol: s.symbol } }} asChild>
@@ -100,6 +111,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  manualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
   },
   resultSymbol: {
     color: colors.text,

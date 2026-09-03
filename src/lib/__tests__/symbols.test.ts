@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS, findSymbol } from '../data/symbols';
+import { ALL_SYMBOLS, CRYPTO_SYMBOLS, STOCK_SYMBOLS, findSymbol, resolveSymbol } from '../data/symbols';
 
 describe('symbol data', () => {
   it('has a broad S&P 500 + TSX stock universe, no ETFs or leveraged products', () => {
@@ -29,5 +29,26 @@ describe('symbol data', () => {
     expect(findSymbol('ry.to')?.exchange).toBe('TSX');
     expect(findSymbol('ry.to')?.name).toContain('Royal Bank');
     expect(CRYPTO_SYMBOLS.length).toBe(50);
+  });
+});
+
+describe('resolveSymbol', () => {
+  it('returns the real registry entry when the symbol is already curated', () => {
+    const info = resolveSymbol('aapl');
+    expect(info.name).toBe('Apple Inc.');
+    expect(info.exchange).toBe('S&P 500');
+  });
+
+  it('falls back to a generic US stock entry for an unlisted ticker', () => {
+    const info = resolveSymbol('zzzz');
+    expect(info.symbol).toBe('ZZZZ');
+    expect(info.kind).toBe('stock');
+    expect(info.exchange).toBeUndefined();
+  });
+
+  it('recognizes a ".TO"-suffixed unlisted ticker as a TSX/CAD stock', () => {
+    const info = resolveSymbol('newco.to');
+    expect(info.symbol).toBe('NEWCO.TO');
+    expect(info.exchange).toBe('TSX');
   });
 });

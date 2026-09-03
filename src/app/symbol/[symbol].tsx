@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanner } from '../../hooks/useScanner';
-import { findSymbol } from '../../lib/data/symbols';
+import { resolveSymbol } from '../../lib/data/symbols';
 import { fetchIntradayCandles } from '../../lib/data/fetch';
 import type { Candle } from '../../lib/types';
 import { formatPrice, formatDate } from '../../lib/format';
@@ -54,7 +54,7 @@ const SIGNAL_META: Record<string, { label: string; color: string }> = {
 export default function SymbolScreen() {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const navigation = useNavigation();
-  const info = symbol ? findSymbol(symbol) : undefined;
+  const info = symbol ? resolveSymbol(symbol) : undefined;
   const priceKind = info?.kind === 'stock' ? 'stock' : 'crypto';
   const [timeframe, setTimeframe] = useState<Timeframe>(DEFAULT_TIMEFRAME);
   const { results, loading } = useScanner(info ? [info] : [], DETAIL_REFRESH_MS);

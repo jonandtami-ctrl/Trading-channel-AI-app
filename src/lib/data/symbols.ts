@@ -98,3 +98,22 @@ export const ALL_SYMBOLS: SymbolInfo[] = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS];
 export function findSymbol(symbol: string): SymbolInfo | undefined {
   return ALL_SYMBOLS.find((s) => s.symbol.toUpperCase() === symbol.toUpperCase());
 }
+
+/**
+ * Same as findSymbol, but never gives up — a ticker this app hasn't
+ * curated into sp500.ts/tsx.ts still resolves to a plain stock entry
+ * (".TO" suffix reads as TSX/CAD, anything else as a generic US/USD
+ * listing) instead of a dead end. This is what lets the symbol detail
+ * screen (and buying from it) work for literally any stock ticker, not
+ * just the ones on the dashboard's curated scan list — Twelve
+ * Data/Yahoo/TradingView all already accept a raw ticker directly, they
+ * never actually needed the registry entry to exist.
+ */
+export function resolveSymbol(symbol: string): SymbolInfo {
+  const known = findSymbol(symbol);
+  if (known) return known;
+
+  const ticker = symbol.trim().toUpperCase();
+  const isTsx = ticker.endsWith('.TO');
+  return { symbol: ticker, name: ticker, kind: 'stock', exchange: isTsx ? 'TSX' : undefined };
+}
