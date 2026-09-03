@@ -38,6 +38,7 @@ import { formatPrice } from '../../lib/format';
 import { findSymbol } from '../../lib/data/symbols';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { EquityCurve } from '../../components/EquityCurve';
+import { SymbolSearch } from '../../components/SymbolSearch';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
 type JournalTab = 'overview' | 'open' | 'closed' | 'taxes';
@@ -65,6 +66,7 @@ export default function JournalScreen() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [tab, setTab] = useState<JournalTab>('overview');
+  const [addTradeOpen, setAddTradeOpen] = useState(false);
   const { crypto, stocks } = useScanData();
 
   const latestBySymbol: Record<string, number> = {};
@@ -96,14 +98,26 @@ export default function JournalScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <View style={styles.titleIcon}>
-            <Ionicons name="book" size={18} color={colors.accent} />
+          <View style={styles.titleLeft}>
+            <View style={styles.titleIcon}>
+              <Ionicons name="book" size={18} color={colors.accent} />
+            </View>
+            <Text style={styles.title}>Trade Journal</Text>
           </View>
-          <Text style={styles.title}>Trade Journal</Text>
+          <Pressable style={styles.addTradeButton} onPress={() => setAddTradeOpen((v) => !v)}>
+            <Ionicons name={addTradeOpen ? 'close' : 'add'} size={15} color="#fff" />
+            <Text style={styles.addTradeText}>{addTradeOpen ? 'Cancel' : 'Add Trade'}</Text>
+          </Pressable>
         </View>
         <Text style={styles.subtitle}>
           {openCount} open · {closedCount} closed
         </Text>
+        {addTradeOpen && (
+          <View style={styles.addTradeSearch}>
+            <Text style={styles.addTradeHint}>Search a symbol to buy — you'll land on its page to enter price/shares/stop/target.</Text>
+            <SymbolSearch />
+          </View>
+        )}
       </View>
 
       <View style={styles.tabBar}>
@@ -526,7 +540,34 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  titleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  addTradeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    backgroundColor: colors.accent,
+  },
+  addTradeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  addTradeSearch: {
+    marginTop: spacing.sm,
+  },
+  addTradeHint: {
+    color: colors.textDim,
+    fontSize: 10,
+    marginBottom: 4,
   },
   titleIcon: {
     width: 28,
