@@ -12,10 +12,11 @@ import { recentLevels } from '../../lib/levels';
 import { tradingViewUrl } from '../../lib/tradingview';
 import { backtestChannel } from '../../lib/backtest';
 import { computeTradePlanForChannel } from '../../lib/tradePlan';
+import { channelSnapshotFor } from '../../lib/bounceSetup';
 import { DEFAULT_TIMEFRAME, type Timeframe } from '../../lib/timeframes';
 import { loadPinnedSymbols, togglePin } from '../../lib/pins';
-import { unrealizedPnl, type Trade } from '../../lib/journal';
-import { loadTrades, logTrade, closeTrade } from '../../lib/journalStorage';
+import { averageCostPerShare, isOpen, sharesHeld, unrealizedPnlCAD, type Position, type SetupType } from '../../lib/position';
+import { loadPositions, openPosition, addBuy, sell } from '../../lib/journalStorage';
 import { DEFAULT_TRADE_SETTINGS, loadTradeSettings, type TradeSettings } from '../../lib/tradeSettingsStorage';
 import { LiveBadge } from '../../components/LiveBadge';
 import { Disclaimer } from '../../components/Disclaimer';
@@ -26,8 +27,16 @@ import { CurrentTrend } from '../../components/CurrentTrend';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { SectionHeader } from '../../components/SectionHeader';
 import { TimeframeSelector } from '../../components/TimeframeSelector';
-import { TradeModal } from '../../components/TradeModal';
+import { BuySellModal, type BuySellMode } from '../../components/BuySellModal';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
+
+/** Maps the symbol's current trade-plan/channel state to a journal setup type, so opening from the scanner never asks for this by hand. */
+function inferSetupType(channelState: string | undefined): SetupType {
+  if (channelState === 'support_sweep_reclaim') return 'support_reclaim';
+  if (channelState === 'bouncing_from_support' || channelState === 'at_support') return 'channel_bounce';
+  if (channelState === 'confirmed_breakout' || channelState === 'breakout_attempt' || channelState === 'breakout_retest') return 'breakout';
+  return 'other';
+}
 
 // A single symbol only costs 1 Twelve Data credit per refresh, so this can
 // stay fairly fast, but leaving a detail screen open all day at 60s would
@@ -67,8 +76,8 @@ export default function SymbolScreen() {
   }, [timeframe.label, symbol]);
 
   const [pinned, setPinned] = useState(false);
-  const [trades, setTrades] = useState<Trade[]>([]);
-  const [modalMode, setModalMode] = useState<'log' | 'close' | null>(null);
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [modalMode, setModalMode] = useState<BuySellMode | null>(null);
   const [tradeSettings, setTradeSettings] = useState<TradeSettings>(DEFAULT_TRADE_SETTINGS);
 
   useEffect(() => {
@@ -78,7 +87,7 @@ export default function SymbolScreen() {
   useEffect(() => {
     if (!symbol) return;
     loadPinnedSymbols().then((pins) => setPinned(pins.includes(symbol)));
-    loadTrades().then(setTrades);
+    loadPositions().then(setPositions);
     loadTradeSettings().then(setTradeSettings);
   }, [symbol]);
 
@@ -101,7 +110,7 @@ export default function SymbolScreen() {
   const last = result.candles[result.candles.length - 1];
   const signal = getSignal(result);
   const signalMeta = signal ? SIGNAL_META[signal] : null;
-  const openTrade = trades.find((t) => t.symbol === symbol && t.status === 'open');
+  const openPositionForSymbol = positions.find((p) => p.symbol === symbol && isOpen(p));
 
   // The scan always analyzes a full 2-year daily history; "1W"/"1M" just
   // control how much of that the chart displays, so switching between them
@@ -126,11 +135,29 @@ export default function SymbolScreen() {
     setPinned(next.includes(symbol!));
   }
 
-  async function handleSubmit(price: number, quantity: number, dateIso: string) {
-    if (modalMode === 'log') {
-      setTrades(await logTrade(symbol!, price, quantity, dateIso));
-    } else if (modalMode === 'close' && openTrade) {
-      setTrades(await closeTrade(openTrade.id, price, dateIso));
+  async function handleFillSubmit(fill: { price: number; shares: number; fee: number; dateIso: string; stopPrice?: number | null; targetPrice?: number | null }) {
+    if (modalMode === 'open') {
+      const channel = result!.channels[0] ?? result!.valueChannels?.[0];
+      setPositions(
+        await openPosition({
+          symbol: symbol!,
+          name: info?.name ?? symbol!,
+          exchange: info?.exchange,
+          currency: info?.exchange === 'TSX' ? 'CAD' : 'USD',
+          price: fill.price,
+          shares: fill.shares,
+          fee: fill.fee,
+          dateIso: fill.dateIso,
+          stopPrice: fill.stopPrice ?? null,
+          targetPrice: fill.targetPrice ?? null,
+          setupType: inferSetupType(result!.tradePlan?.channelState),
+          channelSnapshot: channel ? channelSnapshotFor(result!.candles, channel) : null,
+        })
+      );
+    } else if (modalMode === 'add' && openPositionForSymbol) {
+      setPositions(await addBuy(openPositionForSymbol.id, fill));
+    } else if (modalMode === 'sell' && openPositionForSymbol) {
+      setPositions(await sell(openPositionForSymbol.id, fill));
     }
     setModalMode(null);
   }
@@ -175,24 +202,30 @@ export default function SymbolScreen() {
             <Ionicons name={pinned ? 'pin' : 'pin-outline'} size={14} color={pinned ? colors.accent : colors.textDim} />
             <Text style={[styles.actionText, pinned && styles.actionTextActive]}>{pinned ? 'Pinned' : 'Pin'}</Text>
           </Pressable>
-          {openTrade ? (
-            <Pressable style={[styles.actionButton, styles.actionButtonRed]} onPress={() => setModalMode('close')}>
-              <Ionicons name="close-circle-outline" size={14} color={colors.red} />
-              <Text style={[styles.actionText, styles.actionTextRed]}>Close Trade</Text>
-            </Pressable>
+          {openPositionForSymbol ? (
+            <>
+              <Pressable style={[styles.actionButton, styles.actionButtonGreen]} onPress={() => setModalMode('add')}>
+                <Ionicons name="add-circle-outline" size={14} color={colors.green} />
+                <Text style={[styles.actionText, styles.actionTextGreen]}>Add</Text>
+              </Pressable>
+              <Pressable style={[styles.actionButton, styles.actionButtonRed]} onPress={() => setModalMode('sell')}>
+                <Ionicons name="close-circle-outline" size={14} color={colors.red} />
+                <Text style={[styles.actionText, styles.actionTextRed]}>Sell</Text>
+              </Pressable>
+            </>
           ) : (
-            <Pressable style={[styles.actionButton, styles.actionButtonGreen]} onPress={() => setModalMode('log')}>
+            <Pressable style={[styles.actionButton, styles.actionButtonGreen]} onPress={() => setModalMode('open')}>
               <Ionicons name="add-circle-outline" size={14} color={colors.green} />
-              <Text style={[styles.actionText, styles.actionTextGreen]}>Log Trade</Text>
+              <Text style={[styles.actionText, styles.actionTextGreen]}>Buy</Text>
             </Pressable>
           )}
         </View>
 
-        {openTrade && last && (
+        {openPositionForSymbol && last && (
           <Text style={styles.openTradeText}>
-            Open: {openTrade.quantity} @ {formatPrice(openTrade.entryPrice, priceKind)} · unrealized{' '}
-            {unrealizedPnl(openTrade, last.close) >= 0 ? '+' : ''}
-            {formatPrice(unrealizedPnl(openTrade, last.close), priceKind)}
+            Open: {sharesHeld(openPositionForSymbol)} @ {formatPrice(averageCostPerShare(openPositionForSymbol), priceKind)} · unrealized{' '}
+            {unrealizedPnlCAD(openPositionForSymbol, last.close) >= 0 ? '+' : ''}
+            {formatPrice(unrealizedPnlCAD(openPositionForSymbol, last.close), 'stock')} CAD
           </Text>
         )}
       </View>
@@ -236,13 +269,15 @@ export default function SymbolScreen() {
       <SectionHeader title="Alerts" color={colors.blue} />
       <AlertsFeed alerts={result.alerts} />
 
-      <TradeModal
+      <BuySellModal
         visible={modalMode !== null}
-        mode={modalMode ?? 'log'}
+        mode={modalMode ?? 'open'}
         symbol={symbol}
+        priceKind={priceKind}
         defaultPrice={last ? Number(last.close.toFixed(4)) : 0}
+        maxShares={modalMode === 'sell' && openPositionForSymbol ? sharesHeld(openPositionForSymbol) : undefined}
         onCancel={() => setModalMode(null)}
-        onSubmit={handleSubmit}
+        onSubmit={handleFillSubmit}
       />
     </ScrollView>
   );

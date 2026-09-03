@@ -6,6 +6,7 @@ import { channelAgeDays } from './channelAge';
 import { countChannelCycles } from './channelCycles';
 import { calculateRSI } from './rsi';
 import { averageDailyDollarVolume, isLiquid, MIN_LIQUIDITY_USD } from './liquidity';
+import type { ChannelSnapshot } from './position';
 
 export type BounceStatus = 'early_bounce' | 'near_support' | 'in_channel' | 'breaking';
 
@@ -39,6 +40,35 @@ export const MAX_POSITION_PCT = 25;
 // this just adds the age floor so a channel that only just formed doesn't count as "established."
 export const MIN_TOUCHES = 2;
 export const MIN_CHANNEL_AGE_DAYS = 30;
+
+/**
+ * The same descriptive channel numbers evaluateBounceSetup computes, but
+ * without any of its qualification gates — used to snapshot "what did this
+ * channel look like right now" onto a journal entry when a trade is opened
+ * (see item H, channel-trade review), regardless of whether the channel
+ * happens to clear the bounce-setup bar at that exact moment.
+ */
+export function channelSnapshotFor(candles: Candle[], channel: Channel): ChannelSnapshot {
+  const last = candles[candles.length - 1];
+  const currentPrice = last?.close ?? channel.support.price;
+  const channelHeight = channel.resistance.price - channel.support.price;
+  const positionInChannelPct = channelHeight > 0 ? ((currentPrice - channel.support.price) / channelHeight) * 100 : 50;
+  const roomToResistancePct = currentPrice > 0 ? ((channel.resistance.price - currentPrice) / currentPrice) * 100 : 0;
+  const rsiSeries = calculateRSI(candles);
+  const rsiLast = rsiSeries[rsiSeries.length - 1];
+
+  return {
+    support: channel.support.price,
+    resistance: channel.resistance.price,
+    widthPct: channel.widthPct,
+    positionInChannelPct,
+    roomToResistancePct,
+    channelAgeDays: channelAgeDays(channel, candles),
+    supportTouches: channel.support.touches.length,
+    resistanceTouches: channel.resistance.touches.length,
+    rsi: Number.isNaN(rsiLast) ? null : rsiLast,
+  };
+}
 
 /**
  * Evaluates one symbol's channel against the bounce-trading rules (see the

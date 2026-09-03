@@ -5,7 +5,8 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS } from '../../lib/data/symbols';
 import { loadPinnedSymbols } from '../../lib/pins';
-import { loadTrades } from '../../lib/journalStorage';
+import { loadPositions } from '../../lib/journalStorage';
+import { isOpen } from '../../lib/position';
 import { Watchlist } from '../../components/Watchlist';
 import { cardShadow, colors, radius, spacing } from '../../constants/theme';
 
@@ -23,8 +24,8 @@ export default function PinnedScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([loadPinnedSymbols(), loadTrades()]).then(([pinned, trades]) => {
-        const openSymbols = trades.filter((t) => t.status === 'open').map((t) => t.symbol);
+      Promise.all([loadPinnedSymbols(), loadPositions()]).then(([pinned, positions]) => {
+        const openSymbols = positions.filter(isOpen).map((p) => p.symbol);
         setSymbols(Array.from(new Set([...pinned, ...openSymbols])));
         setLoadedOnce(true);
       });

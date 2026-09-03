@@ -8,7 +8,8 @@ import { bySignal, mostReliableChannels, topActivePicks, underMaxBuyPrice } from
 import { evaluateAllBounceSetups, bounceSetupSections } from '../../lib/bounceSetup';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
-import { loadTrades } from '../../lib/journalStorage';
+import { loadPositions } from '../../lib/journalStorage';
+import { isOpen } from '../../lib/position';
 import { Watchlist } from '../../components/Watchlist';
 import { BounceSetupList } from '../../components/BounceSetupList';
 import { SymbolSearch } from '../../components/SymbolSearch';
@@ -32,8 +33,8 @@ export default function DashboardScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      Promise.all([loadPinnedSymbols(), loadTrades()]).then(([pinned, trades]) => {
-        const openSymbols = trades.filter((t) => t.status === 'open').map((t) => t.symbol);
+      Promise.all([loadPinnedSymbols(), loadPositions()]).then(([pinned, positions]) => {
+        const openSymbols = positions.filter(isOpen).map((p) => p.symbol);
         setKeepSymbols(Array.from(new Set([...pinned, ...openSymbols])));
       });
     }, [])
