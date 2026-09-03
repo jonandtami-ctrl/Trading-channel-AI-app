@@ -5,10 +5,12 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useScanData } from '../../hooks/ScanDataProvider';
 import { ALL_SYMBOLS, findSymbol } from '../../lib/data/symbols';
 import { bySignal, mostReliableChannels, topActivePicks, underMaxBuyPrice } from '../../lib/scan';
+import { evaluateAllBounceSetups, bounceSetupSections } from '../../lib/bounceSetup';
 import type { ScanResult } from '../../lib/types';
 import { loadPinnedSymbols } from '../../lib/pins';
 import { loadTrades } from '../../lib/journalStorage';
 import { Watchlist } from '../../components/Watchlist';
+import { BounceSetupList } from '../../components/BounceSetupList';
 import { SymbolSearch } from '../../components/SymbolSearch';
 import { AlertsFeed } from '../../components/AlertsFeed';
 import { LiveBadge } from '../../components/LiveBadge';
@@ -124,6 +126,14 @@ export default function DashboardScreen() {
   // out by the much bigger stock universe.
   const cryptoPicks = topActivePicks(cryptoResults);
 
+  // Bounce-trading strategy — looks for established, wide-enough sideways
+  // channels (ZTS-style) with price sitting low enough in the range to
+  // realistically target the opposite side. See bounceSetup.ts for the
+  // full rule set (width/position/reliability/trend/liquidity gates and
+  // the EARLY BOUNCE/NEAR SUPPORT/BREAKING status).
+  const bounceCandidates = evaluateAllBounceSetups(allResults);
+  const { bestBounceSetups, wideChannels, nearChannelFloor } = bounceSetupSections(bounceCandidates, TOP_PICKS_CAP);
+
   const anyLive = allResults.some((r) => r.isLive);
   const allAlerts = allResults.flatMap((r) => r.alerts);
 
@@ -212,6 +222,25 @@ export default function DashboardScreen() {
               <Watchlist results={keptResults} names={names} />
             </>
           )}
+
+          <SectionHeader
+            title="Best Bounce Setups"
+            count={bestBounceSetups.length}
+            color={colors.green}
+            icon="trending-up"
+          />
+          <BounceSetupList candidates={bestBounceSetups} names={names} />
+
+          <SectionHeader title="Wide Channels" count={wideChannels.length} color={colors.text} icon="resize-outline" />
+          <BounceSetupList candidates={wideChannels} names={names} />
+
+          <SectionHeader
+            title="Near Channel Floor"
+            count={nearChannelFloor.length}
+            color={colors.amber}
+            icon="arrow-down-circle-outline"
+          />
+          <BounceSetupList candidates={nearChannelFloor} names={names} />
 
           <SectionHeader
             title="Support Sweep Reclaim"
