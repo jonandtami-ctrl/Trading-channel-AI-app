@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   evaluateBounceSetup,
   evaluateAllBounceSetups,
+  evaluateBounceSetupFromHistory,
   bounceSetupSections,
   MIN_CHANNEL_WIDTH_PCT,
   MAX_POSITION_PCT,
@@ -176,18 +177,84 @@ describe('evaluateBounceSetup — never fabricates a candidate for a symbol that
   });
 });
 
+describe('evaluateBounceSetup — distance from support and extended-move penalty (rules 4, 5, 9)', () => {
+  it('reports distanceFromSupportPct and scores a within-2%-of-support candidate higher than a far one', () => {
+    const channel = establishedChannel(100, 110); // 10% wide, room for both cases below
+    const near = evaluateBounceSetup('NEAR', withLastClose(baseCandles(40, 101), 101), channel)!;
+    const far = evaluateBounceSetup('FAR', withLastClose(baseCandles(40, 107), 107), channel)!;
+    expect(near.distanceFromSupportPct).toBeCloseTo(1, 1);
+    expect(far.distanceFromSupportPct).toBeCloseTo(7, 1);
+    expect(near.rankScore).toBeGreaterThan(far.rankScore);
+    expect(far.penalties.some((p) => p.toLowerCase().includes('extended'))).toBe(true);
+    expect(near.penalties.some((p) => p.toLowerCase().includes('extended'))).toBe(false);
+  });
+
+  it('penalizes high RSI once price has already moved away from support, even without a downtrend (rule 8)', () => {
+    const channel = establishedChannel(100, 110);
+    // Ramp the last several closes up from support toward 107 so RSI actually reads high, not just the raw price level.
+    const ramping = baseCandles(40, 100);
+    for (let i = 30; i < 40; i++) {
+      ramping[i] = { ...ramping[i], close: 100 + (i - 29) * 0.8, open: 100 + (i - 29) * 0.8, high: 101 + (i - 29) * 0.8, low: 99 + (i - 29) * 0.8 };
+    }
+    const candidate = evaluateBounceSetup('OVERHEATED', ramping, channel)!;
+    expect(candidate.rsi).not.toBeNull();
+    expect(candidate.rsi!).toBeGreaterThan(70);
+    expect(candidate.penalties.some((p) => p.toLowerCase().includes('rsi'))).toBe(true);
+  });
+
+  it('includes a plain-English reason string covering distance from support, touches, and upside room (rule 10)', () => {
+    const channel = establishedChannel(100, 104);
+    const candidate = evaluateBounceSetup('ZTS', withLastClose(baseCandles(40, 100.5), 100.5), channel)!;
+    expect(candidate.reason.length).toBeGreaterThan(0);
+    expect(candidate.reason).toMatch(/support/i);
+    expect(candidate.reason).toMatch(/upside to resistance/i);
+  });
+});
+
+/**
+ * A genuine oscillating price series (not a hand-crafted Channel object) —
+ * bounces between support and resistance every `cyclePeriod` days for
+ * `days` total, so findPivots/clusterLevels/detectChannels (the same real
+ * pipeline evaluateBounceSetupFromHistory runs) actually discovers the
+ * range on its own, the way real market data would.
+ */
+function oscillatingCandles(days: number, support: number, resistance: number, cyclePeriod = 20, volume = LIQUID_VOLUME): Candle[] {
+  const mid = (support + resistance) / 2;
+  const amplitude = (resistance - support) / 2;
+  return Array.from({ length: days }, (_, i) => {
+    const phase = ((i % cyclePeriod) / cyclePeriod) * 2 * Math.PI;
+    const price = mid - amplitude * Math.cos(phase);
+    return { time: i * DAY, open: price, high: price + 0.05, low: price - 0.05, close: price, volume };
+  });
+}
+
 describe('SHOP.TO is eligible for the bounce-setup candidate universe', () => {
   it('resolves as a real, scannable symbol (not excluded by any hard-coded ticker list)', () => {
     expect(findSymbol('SHOP.TO')).toBeDefined();
     expect(findSymbol('SHOP.TO')?.kind).toBe('stock');
   });
 
-  it('produces a candidate through the same evaluation path as any other symbol once its data qualifies', () => {
-    const channel = establishedChannel(100, 104);
-    const candles = withLastClose(baseCandles(40, 100.5), 100.5);
-    const result: ScanResult = { symbol: 'SHOP.TO', candles, channels: [], levels: [], alerts: [], isLive: true, valueChannels: [channel] };
+  it('produces a candidate through the same evaluation path as any other symbol, discovering its own channel from raw price history', () => {
+    const candles = oscillatingCandles(90, 100, 104);
+    const result: ScanResult = { symbol: 'SHOP.TO', candles, channels: [], levels: [], alerts: [], isLive: true };
     const candidates = evaluateAllBounceSetups([result]);
     expect(candidates.map((c) => c.symbol)).toEqual(['SHOP.TO']);
+    expect(candidates[0].support).toBeLessThan(candidates[0].resistance);
+    expect(candidates[0].reason.length).toBeGreaterThan(0);
+  });
+});
+
+describe('evaluateBounceSetupFromHistory — 3-month primary / 6-month secondary lookback (rules 1-2)', () => {
+  it('finds a channel confirmed to be established within the 3-month primary window', () => {
+    const candles = oscillatingCandles(90, 100, 104);
+    const candidate = evaluateBounceSetupFromHistory('OSC3', candles);
+    expect(candidate).not.toBeNull();
+    expect(candidate!.widthPct).toBeGreaterThanOrEqual(MIN_CHANNEL_WIDTH_PCT);
+  });
+
+  it('does not throw and returns null for a symbol with no established range at all', () => {
+    const flatCandles = baseCandles(70, 100);
+    expect(evaluateBounceSetupFromHistory('FLAT', flatCandles)).toBeNull();
   });
 });
 
@@ -200,6 +267,7 @@ describe('bounceSetupSections', () => {
       resistance: 104,
       widthPct: 4,
       roomToResistancePct: 3.5,
+      distanceFromSupportPct: 0.5,
       positionInChannelPct: 12,
       channelAgeDays: 40,
       supportTouches: 3,
@@ -208,6 +276,12 @@ describe('bounceSetupSections', () => {
       status: 'near_support',
       liquidityUsd: 100_000_000,
       rankScore: 50,
+      patternScore: 15,
+      institutionalScore: 10,
+      priceActionScore: 25,
+      evidence: ['Holding support'],
+      penalties: [],
+      reason: 'Price is within 0.5% of support, 3 support touches, holding support, RSI 38, 3.5% upside to resistance.',
       ...overrides,
     };
   }
@@ -228,10 +302,10 @@ describe('bounceSetupSections', () => {
     expect(wideChannels.map((c) => c.symbol)).toEqual(['HIGH']);
   });
 
-  it('ranks Near Channel Floor purely by nearness, unlike the weighted Best Bounce Setups sort', () => {
+  it('ranks Near Channel Floor purely by distance from support, unlike the weighted Best Bounce Setups sort', () => {
     // NEAR is closer to support but has weaker reliability/liquidity than FAR.
-    const near = candidate({ symbol: 'NEAR', positionInChannelPct: 5, supportTouches: 2, resistanceTouches: 2, liquidityUsd: 21_000_000, rankScore: 30 });
-    const far = candidate({ symbol: 'FAR', positionInChannelPct: 20, supportTouches: 6, resistanceTouches: 6, liquidityUsd: 500_000_000, rankScore: 90 });
+    const near = candidate({ symbol: 'NEAR', distanceFromSupportPct: 0.5, positionInChannelPct: 5, supportTouches: 2, resistanceTouches: 2, liquidityUsd: 21_000_000, rankScore: 30 });
+    const far = candidate({ symbol: 'FAR', distanceFromSupportPct: 4, positionInChannelPct: 20, supportTouches: 6, resistanceTouches: 6, liquidityUsd: 500_000_000, rankScore: 90 });
     const { nearChannelFloor } = bounceSetupSections([far, near]);
     expect(nearChannelFloor.map((c) => c.symbol)).toEqual(['NEAR', 'FAR']);
   });

@@ -1,5 +1,7 @@
 import type { Candle, Channel, ScanResult } from './types';
 import { findPivots } from './pivots';
+import { clusterLevels } from './levels';
+import { detectChannels } from './channels';
 import { classifyTrend } from './trend';
 import { classifyChannelDirection } from './channelDirection';
 import { channelAgeDays } from './channelAge';
@@ -19,6 +21,8 @@ export interface BounceSetupCandidate {
   widthPct: number;
   /** Upside from current price to resistance, as a percent of current price. */
   roomToResistancePct: number;
+  /** (currentPrice - support) / support * 100 — the primary "how close to the floor" measure, independent of channel height. */
+  distanceFromSupportPct: number;
   /** 0 = sitting at support, 100 = sitting at resistance. Can fall outside 0-100 if price has briefly traded past either line. */
   positionInChannelPct: number;
   channelAgeDays: number;
@@ -28,8 +32,20 @@ export interface BounceSetupCandidate {
   rsi: number | null;
   status: BounceStatus;
   liquidityUsd: number;
-  /** Composite ranking score (see computeRankScore) — higher is a better bounce candidate. Not meant to be displayed, only sorted on. */
+  /** Composite 0-100ish ranking/display score — higher is a better bounce candidate. Shown to the user as "Setup Score". */
   rankScore: number;
+  /** "Is there a consistent pattern to trade?" — reliability of the support/resistance structure itself (touches + completed cycles). */
+  patternScore: number;
+  /** "Is institutional money involved?" — dollar-volume based participation. */
+  institutionalScore: number;
+  /** "What is the price of the chart showing me?" — nearness to support plus live bounce evidence, net of penalties. */
+  priceActionScore: number;
+  /** Plain-language signs this is (or isn't) a genuine bounce in progress, e.g. "Holding support", "Reclaimed support after a brief break". */
+  evidence: string[];
+  /** Plain-language reasons the score was marked down, e.g. "Price already 6.2% above support". */
+  penalties: string[];
+  /** One-sentence, human-readable summary of why this candidate scored the way it did. */
+  reason: string;
 }
 
 // Rule 1: minimum total channel width — a range this narrow can't realistically offer a 2%+ target.
@@ -40,6 +56,12 @@ export const MAX_POSITION_PCT = 25;
 // this just adds the age floor so a channel that only just formed doesn't count as "established."
 export const MIN_TOUCHES = 2;
 export const MIN_CHANNEL_AGE_DAYS = 30;
+
+// ~3 months of trading days is the primary lookback for support/resistance/channel detection; ~6 months is
+// used only as a secondary confirmation pass when the 3-month view doesn't turn up a qualifying channel, to
+// catch larger, slower-forming levels a shorter window would miss.
+const PRIMARY_LOOKBACK_CANDLES = 63;
+const SECONDARY_LOOKBACK_CANDLES = 126;
 
 /**
  * The same descriptive channel numbers evaluateBounceSetup computes, but
@@ -75,10 +97,9 @@ export function channelSnapshotFor(candles: Candle[], channel: Channel): Channel
  * BEST_BOUNCE_SETUPS spec): width, reliability, trend, and liquidity are
  * hard gates — a candidate failing any of them isn't a bounce setup at all,
  * not just a low-ranked one. Returns null when the channel doesn't qualify.
- * Callers pick which of the three dashboard sections a qualifying candidate
- * belongs in based on positionInChannelPct/status (see bounceSetupSections
- * below) — this function always returns the full picture regardless of
- * which section will end up showing it.
+ * `candles` must be the same array the channel's levels were detected from
+ * (touch indices are positional), which for the mass scan is a 3- or
+ * 6-month tail slice, not the full history — see evaluateAllBounceSetups.
  */
 export function evaluateBounceSetup(symbol: string, candles: Candle[], channel: Channel): BounceSetupCandidate | null {
   if (candles.length === 0) return null;
@@ -113,23 +134,29 @@ export function evaluateBounceSetup(symbol: string, candles: Candle[], channel: 
   const channelHeight = channel.resistance.price - channel.support.price;
   const positionInChannelPct = channelHeight > 0 ? ((currentPrice - channel.support.price) / channelHeight) * 100 : 50;
   const roomToResistancePct = currentPrice > 0 ? ((channel.resistance.price - currentPrice) / currentPrice) * 100 : 0;
+  const distanceFromSupportPct = channel.support.price > 0 ? ((currentPrice - channel.support.price) / channel.support.price) * 100 : 0;
 
   const rsiSeries = calculateRSI(candles);
   const rsiLast = rsiSeries[rsiSeries.length - 1];
   const rsi = Number.isNaN(rsiLast) ? null : rsiLast;
 
-  const status = determineBounceStatus(channel, candles, positionInChannelPct, rsiSeries);
+  const evidence = detectBounceEvidence(candles, channel.support.price, distanceFromSupportPct);
+  const status = determineBounceStatus(currentPrice, channel.support.price, positionInChannelPct, evidence.length);
   const cycles = countChannelCycles(channel, candles).supportToResistanceCycles;
 
-  const rankScore = computeRankScore({
-    positionInChannelPct,
+  const penalties = detectPenalties({ distanceFromSupportPct, roomToResistancePct, supportTouches, rsi });
+  const scores = computeScores({
+    distanceFromSupportPct,
     roomToResistancePct,
     supportTouches,
     resistanceTouches,
     cycles,
-    status,
     liquidityUsd,
+    evidenceCount: evidence.length,
+    penaltyTotal: penalties.total,
   });
+
+  const reason = buildReason({ distanceFromSupportPct, roomToResistancePct, supportTouches, rsi, evidence, penalties: penalties.labels });
 
   return {
     symbol,
@@ -138,6 +165,7 @@ export function evaluateBounceSetup(symbol: string, candles: Candle[], channel: 
     resistance: channel.resistance.price,
     widthPct,
     roomToResistancePct,
+    distanceFromSupportPct,
     positionInChannelPct,
     channelAgeDays: ageDays,
     supportTouches,
@@ -145,71 +173,189 @@ export function evaluateBounceSetup(symbol: string, candles: Candle[], channel: 
     rsi,
     status,
     liquidityUsd,
-    rankScore,
+    rankScore: scores.total,
+    patternScore: scores.patternScore,
+    institutionalScore: scores.institutionalScore,
+    priceActionScore: scores.priceActionScore,
+    evidence,
+    penalties: penalties.labels,
+    reason,
   };
 }
 
 /**
- * Rule 6: GREEN requires being in the bottom quarter of the channel with
- * price beginning to turn up and RSI not still falling — deliberately
- * lenient (a single up-close, RSI not dropping further), since the spec
- * explicitly says not to require perfect confirmation. RED is a support
- * that's visibly failing even if channels.ts's own (looser) break
- * tolerance hasn't flipped channel.status yet — an early warning, not just
- * an after-the-fact label.
+ * Rule 6/7: status is driven by actual bounce evidence rather than RSI or
+ * momentum alone (rule 8) — a single up-close or a high RSI reading isn't
+ * enough on its own to call something an EARLY BOUNCE, it takes at least
+ * two independent, corroborating signs (see detectBounceEvidence). BREAKING
+ * is a support that's visibly failing even if channels.ts's own (looser)
+ * break tolerance hasn't flipped channel.status yet — an early warning, not
+ * just an after-the-fact label.
  */
-function determineBounceStatus(channel: Channel, candles: Candle[], positionInChannelPct: number, rsiSeries: number[]): BounceStatus {
-  const last = candles[candles.length - 1];
-  if (last.close < channel.support.price * 0.99) return 'breaking';
+function determineBounceStatus(currentPrice: number, support: number, positionInChannelPct: number, evidenceCount: number): BounceStatus {
+  if (currentPrice < support * 0.99) return 'breaking';
   if (positionInChannelPct > MAX_POSITION_PCT) return 'in_channel';
-
-  const prev = candles[candles.length - 2];
-  const turningUp = prev != null && last.close > prev.close;
-
-  // Compares against the immediately prior reading, not several candles
-  // back — a genuine turn shows up as the most recent step ticking up even
-  // right after a decline; comparing further back would still see the
-  // overall dip and miss that it just started reversing.
-  const rsiLast = rsiSeries[rsiSeries.length - 1];
-  const rsiPrior = rsiSeries[rsiSeries.length - 2];
-  const rsiNotFalling = Number.isNaN(rsiLast) || Number.isNaN(rsiPrior) ? true : rsiLast >= rsiPrior - 1;
-
-  return turningUp && rsiNotFalling ? 'early_bounce' : 'near_support';
+  return evidenceCount >= 2 ? 'early_bounce' : 'near_support';
 }
 
-// Rule 9's priority order (nearness > room > reliability > early-bounce
-// evidence > liquidity) implemented as descending weights on a single
-// composite score, rather than a strict lexicographic sort — a strict
-// lexicographic sort would let an infinitesimal nearness difference always
-// beat a huge reliability difference, which isn't what "primarily by"
-// means in practice.
-const RANK_WEIGHTS = { nearness: 40, room: 25, reliability: 15, earlyBounce: 12, liquidity: 8 };
+/**
+ * Rule 7's five named signs of a genuine bounce in progress: holding
+ * support, reclaiming it after a brief break, a higher low forming near it,
+ * a bullish confirmation candle, and improving volume. Each is independent
+ * — a candidate can show anywhere from zero to all five — so status and
+ * score both reward corroboration rather than any single signal.
+ */
+function detectBounceEvidence(candles: Candle[], support: number, distanceFromSupportPct: number): string[] {
+  const evidence: string[] = [];
+  const last = candles[candles.length - 1];
+  const prev = candles[candles.length - 2];
+  if (!last) return evidence;
+
+  const recentWindow = candles.slice(-5);
+  const holdingSupport = recentWindow.length > 0 && recentWindow.every((c) => c.close >= support * 0.99);
+  if (holdingSupport && distanceFromSupportPct <= 5) evidence.push('Holding support');
+
+  const priorWindow = candles.slice(-10, -1);
+  const dippedBelow = priorWindow.some((c) => c.close < support * 0.99);
+  if (dippedBelow && last.close >= support) evidence.push('Reclaimed support after a brief break');
+
+  const recentPivots = findPivots(candles.slice(-40), 3);
+  const lows = recentPivots.filter((p) => p.type === 'low').slice(-2);
+  if (lows.length === 2 && lows[1].price > lows[0].price && lows[1].price <= support * 1.05) {
+    evidence.push('Higher low forming near support');
+  }
+
+  const turningUp = prev != null && last.close > prev.close;
+  const bullishBody = last.close > last.open;
+  if (turningUp || bullishBody) evidence.push('Bullish candle confirmation');
+
+  const volumeWindow = candles.slice(-20).filter((c) => c.volume != null);
+  const avgVolume = volumeWindow.length > 0 ? volumeWindow.reduce((sum, c) => sum + (c.volume ?? 0), 0) / volumeWindow.length : 0;
+  const recentVolumeWindow = candles.slice(-3).filter((c) => c.volume != null);
+  const recentVolume = recentVolumeWindow.length > 0 ? recentVolumeWindow.reduce((sum, c) => sum + (c.volume ?? 0), 0) / recentVolumeWindow.length : 0;
+  if (avgVolume > 0 && recentVolume > avgVolume * 1.1) evidence.push('Improving volume');
+
+  return evidence;
+}
+
+/**
+ * Rules 5, 8 and 9's named score deductions — an early-bounce setup should
+ * lose points (not just fail a binary cutoff) the further it drifts from
+ * "fresh," whether that's price already extended off support, momentum
+ * that's overheated relative to how far price still has to travel, thin
+ * proof the support level even holds, or too little room left before
+ * resistance to matter.
+ */
+function detectPenalties(args: {
+  distanceFromSupportPct: number;
+  roomToResistancePct: number;
+  supportTouches: number;
+  rsi: number | null;
+}): { total: number; labels: string[] } {
+  let total = 0;
+  const labels: string[] = [];
+
+  if (args.distanceFromSupportPct > 5) {
+    const excess = Math.min(args.distanceFromSupportPct - 5, 15);
+    total += excess * 1.5;
+    labels.push(`Price is already ${args.distanceFromSupportPct.toFixed(1)}% above support — an extended move, not a fresh bounce`);
+  }
+
+  if (args.rsi != null && args.rsi >= 70 && args.distanceFromSupportPct > 3) {
+    total += 15;
+    labels.push(`RSI is elevated at ${args.rsi.toFixed(0)} while price is already away from support`);
+  } else if (args.rsi != null && args.rsi >= 80) {
+    total += 8;
+    labels.push(`RSI is very high at ${args.rsi.toFixed(0)}`);
+  }
+
+  if (args.supportTouches < 3) {
+    total += 6;
+    labels.push('Support has only the minimum touches so far — still relatively untested');
+  }
+
+  if (args.roomToResistancePct < 3) {
+    total += 10;
+    labels.push(`Only ${args.roomToResistancePct.toFixed(1)}% of room left before resistance`);
+  }
+
+  return { total, labels };
+}
+
+// Weights sum to 100 before penalties: nearness to support is the single biggest factor (rule 4), evidence
+// and pattern reliability ("is there a consistent pattern to trade?") come next, then institutional
+// participation ("is institutional money involved?") and remaining room to resistance.
+const WEIGHTS = { nearness: 35, evidence: 15, pattern: 20, institutional: 15, room: 15 };
+const NEARNESS_CAP_PCT = 10; // distance-from-support beyond this contributes nothing further to nearness
 const ROOM_CAP_PCT = 20; // room beyond this doesn't add further ranking value
 const LIQUIDITY_CAP_MULTIPLE = 5; // dollar volume beyond 5x the floor doesn't add further ranking value
 
-function computeRankScore(args: {
-  positionInChannelPct: number;
+function computeScores(args: {
+  distanceFromSupportPct: number;
   roomToResistancePct: number;
   supportTouches: number;
   resistanceTouches: number;
   cycles: number;
-  status: BounceStatus;
   liquidityUsd: number;
-}): number {
-  const clampedPosition = Math.max(0, Math.min(100, args.positionInChannelPct));
-  const nearnessScore = (1 - clampedPosition / 100) * RANK_WEIGHTS.nearness;
+  evidenceCount: number;
+  penaltyTotal: number;
+}): { total: number; patternScore: number; institutionalScore: number; priceActionScore: number } {
+  const clampedDistance = Math.max(0, Math.min(args.distanceFromSupportPct, NEARNESS_CAP_PCT));
+  const nearnessScore = (1 - clampedDistance / NEARNESS_CAP_PCT) * WEIGHTS.nearness;
 
-  const roomScore = Math.min(args.roomToResistancePct, ROOM_CAP_PCT) / ROOM_CAP_PCT * RANK_WEIGHTS.room;
+  const evidenceScore = Math.min(args.evidenceCount / 5, 1) * WEIGHTS.evidence;
 
+  // "Is there a consistent pattern to trade?" — how well-proven the range itself is.
   const touchesNormalized = Math.min((args.supportTouches + args.resistanceTouches) / 8, 1);
   const cyclesNormalized = Math.min(args.cycles / 3, 1);
-  const reliabilityScore = (touchesNormalized * 0.6 + cyclesNormalized * 0.4) * RANK_WEIGHTS.reliability;
+  const patternScore = (touchesNormalized * 0.6 + cyclesNormalized * 0.4) * WEIGHTS.pattern;
 
-  const earlyBounceScore = args.status === 'early_bounce' ? RANK_WEIGHTS.earlyBounce : args.status === 'near_support' ? RANK_WEIGHTS.earlyBounce * 0.5 : 0;
+  // "Is institutional money involved?" — a simple, standard proxy: sustained dollar volume.
+  const institutionalScore = Math.min(args.liquidityUsd / (MIN_LIQUIDITY_USD * LIQUIDITY_CAP_MULTIPLE), 1) * WEIGHTS.institutional;
 
-  const liquidityScore = Math.min(args.liquidityUsd / (MIN_LIQUIDITY_USD * LIQUIDITY_CAP_MULTIPLE), 1) * RANK_WEIGHTS.liquidity;
+  const roomScore = (Math.min(args.roomToResistancePct, ROOM_CAP_PCT) / ROOM_CAP_PCT) * WEIGHTS.room;
 
-  return nearnessScore + roomScore + reliabilityScore + earlyBounceScore + liquidityScore;
+  const rawTotal = nearnessScore + evidenceScore + patternScore + institutionalScore + roomScore;
+  const total = Math.max(0, rawTotal - args.penaltyTotal);
+
+  // "What is the price of the chart showing me?" — nearness plus live evidence, net of any price-action penalties.
+  const priceActionScore = Math.max(0, nearnessScore + evidenceScore - args.penaltyTotal);
+
+  return { total, patternScore, institutionalScore, priceActionScore };
+}
+
+function buildReason(args: {
+  distanceFromSupportPct: number;
+  roomToResistancePct: number;
+  supportTouches: number;
+  rsi: number | null;
+  evidence: string[];
+  penalties: string[];
+}): string {
+  const parts: string[] = [];
+
+  if (args.penalties.length > 0) {
+    parts.push(args.penalties[0]);
+  } else if (args.distanceFromSupportPct <= 2) {
+    parts.push(`Price is within ${Math.max(args.distanceFromSupportPct, 0).toFixed(1)}% of support`);
+  } else {
+    parts.push(`Price is ${args.distanceFromSupportPct.toFixed(1)}% above support`);
+  }
+
+  parts.push(`${args.supportTouches} support touch${args.supportTouches === 1 ? '' : 'es'}`);
+
+  if (args.evidence.length > 0) {
+    parts.push(args.evidence[0].toLowerCase());
+  }
+
+  if (args.rsi != null) {
+    parts.push(`RSI ${args.rsi.toFixed(0)}`);
+  }
+
+  parts.push(`${args.roomToResistancePct.toFixed(1)}% upside to resistance`);
+
+  const sentence = parts.join(', ');
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1) + '.';
 }
 
 /**
@@ -217,10 +363,11 @@ function computeRankScore(args: {
  * Best Bounce Setups is the curated, ranked "act on this" list; Wide
  * Channels is every established >=3% range regardless of where price sits
  * in it (browsing); Near Channel Floor is everything sitting low in its
- * range, ranked purely by nearness rather than the full weighted score, so
- * it reads as "what's approaching an entry" even before any bounce
- * evidence shows up. None of the three surface a channel whose support is
- * actively failing (status 'breaking') — that's not a bounce opportunity.
+ * range, ranked purely by distance from support rather than the full
+ * weighted score, so it reads as "what's approaching an entry" even before
+ * any bounce evidence shows up. None of the three surface a channel whose
+ * support is actively failing (status 'breaking') — that's not a bounce
+ * opportunity.
  */
 export interface BounceSetupSections {
   bestBounceSetups: BounceSetupCandidate[];
@@ -229,23 +376,52 @@ export interface BounceSetupSections {
 }
 
 /**
- * Evaluates a scanned symbol against the bounce-setup rules using its wide
- * (~1-year) valueChannels rather than the tight ~1-month swing channels —
- * an established, multi-month sideways range like the spec's ZTS example
- * won't even exist in the swing-capped span. Only the best (first)
- * detected channel is considered, matching the convention the rest of
- * scan.ts already uses (see channelReliabilityScore). Demo-fallback
- * results are excluded — a fabricated price/channel has no business being
- * called a real bounce setup, same discipline as every other signal in
- * this app.
+ * Runs findPivots -> clusterLevels -> detectChannels fresh on a tail slice
+ * of a symbol's candles, instead of reusing whatever channels.ts/scan.ts
+ * already computed for the swing/value views — the bounce-setup rules need
+ * their own 3-month-primary/6-month-secondary lookback (rules 1-2), not the
+ * ~1-month swing span or ~1-year value span those other views use.
+ */
+function detectLookbackChannels(candles: Candle[], lookbackCandles: number): { slice: Candle[]; channels: Channel[] } {
+  const slice = candles.slice(-lookbackCandles);
+  const pivots = findPivots(slice, 5);
+  const levels = clusterLevels(pivots);
+  const channels = detectChannels(slice, levels, { maxSpanCandles: lookbackCandles });
+  return { slice, channels };
+}
+
+/**
+ * Evaluates one symbol's full candle history against the bounce-setup
+ * rules: 3 months of history is the primary lookback for support,
+ * resistance, and channel detection; 6 months is checked only as a
+ * secondary confirmation pass when the 3-month view doesn't turn up a
+ * qualifying channel, to catch larger levels a shorter window would miss.
+ * Every channel a lookback finds is tried (best-contained first, per
+ * channels.ts's own sort) until one clears every gate in
+ * evaluateBounceSetup, or the pass comes up empty.
+ */
+export function evaluateBounceSetupFromHistory(symbol: string, candles: Candle[]): BounceSetupCandidate | null {
+  for (const lookback of [PRIMARY_LOOKBACK_CANDLES, SECONDARY_LOOKBACK_CANDLES]) {
+    const { slice, channels } = detectLookbackChannels(candles, lookback);
+    for (const channel of channels) {
+      const candidate = evaluateBounceSetup(symbol, slice, channel);
+      if (candidate) return candidate;
+    }
+  }
+  return null;
+}
+
+/**
+ * Evaluates every live-scanned symbol against the bounce-setup rules.
+ * Demo-fallback results are excluded — a fabricated price/channel has no
+ * business being called a real bounce setup, same discipline as every
+ * other signal in this app.
  */
 export function evaluateAllBounceSetups(results: ScanResult[]): BounceSetupCandidate[] {
   const candidates: BounceSetupCandidate[] = [];
   for (const result of results) {
     if (!result.isLive) continue;
-    const channel = (result.valueChannels ?? result.channels)[0];
-    if (!channel) continue;
-    const candidate = evaluateBounceSetup(result.symbol, result.candles, channel);
+    const candidate = evaluateBounceSetupFromHistory(result.symbol, result.candles);
     if (candidate) candidates.push(candidate);
   }
   return candidates;
@@ -263,7 +439,7 @@ export function bounceSetupSections(candidates: BounceSetupCandidate[], cap = In
 
   const nearChannelFloor = viable
     .filter((c) => c.positionInChannelPct <= MAX_POSITION_PCT)
-    .sort((a, b) => a.positionInChannelPct - b.positionInChannelPct);
+    .sort((a, b) => a.distanceFromSupportPct - b.distanceFromSupportPct);
 
   return { bestBounceSetups, wideChannels, nearChannelFloor };
 }

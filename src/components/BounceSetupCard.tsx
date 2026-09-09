@@ -39,13 +39,15 @@ export function BounceSetupCard({ candidate, name }: { candidate: BounceSetupCan
         <View style={styles.grid}>
           <Cell label="Support" value={price(candidate.support)} />
           <Cell label="Resistance" value={price(candidate.resistance)} />
-          <Cell label="Room to Resistance" value={`+${candidate.roomToResistancePct.toFixed(1)}%`} valueColor={colors.green} />
-          <Cell label="Position in Channel" value={`${candidate.positionInChannelPct.toFixed(0)}%`} />
-          <Cell label="Channel Age" value={formatChannelAge(candidate.channelAgeDays)} />
+          <Cell label="Distance from Support" value={`${candidate.distanceFromSupportPct >= 0 ? '+' : ''}${candidate.distanceFromSupportPct.toFixed(1)}%`} />
+          <Cell label="Upside to Resistance" value={`+${candidate.roomToResistancePct.toFixed(1)}%`} valueColor={colors.green} />
           <Cell label="Support Touches" value={String(candidate.supportTouches)} />
-          <Cell label="Resistance Touches" value={String(candidate.resistanceTouches)} />
           <Cell label="RSI(14)" value={candidate.rsi != null ? candidate.rsi.toFixed(0) : '—'} />
+          <Cell label="Channel Age" value={formatChannelAge(candidate.channelAgeDays)} />
+          <Cell label="Setup Score" value={candidate.rankScore.toFixed(0)} />
         </View>
+
+        <Text style={styles.reason}>{candidate.reason}</Text>
       </Pressable>
     </Link>
   );
@@ -135,5 +137,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 13,
     fontWeight: '700',
+  },
+  reason: {
+    color: colors.textDim,
+    fontSize: 11,
+    lineHeight: 15,
   },
 });
