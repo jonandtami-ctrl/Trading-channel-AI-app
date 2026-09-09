@@ -87,8 +87,7 @@ export function CandleChart({
                 y1={y(channel.resistance.price)}
                 y2={y(channel.resistance.price)}
                 stroke={resistanceColor}
-                strokeWidth={1}
-                strokeDasharray="4,3"
+                strokeWidth={2}
               />
               {!compact && (
                 <SvgText
@@ -107,8 +106,7 @@ export function CandleChart({
                 y1={y(channel.support.price)}
                 y2={y(channel.support.price)}
                 stroke={supportColor}
-                strokeWidth={1}
-                strokeDasharray="4,3"
+                strokeWidth={2}
               />
               {!compact && (
                 <SvgText
