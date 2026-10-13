@@ -84,4 +84,18 @@ describe('detectChannels', () => {
     const channels = detectChannels(candles, levels, { maxSpanCandles: Infinity });
     expect(channels.length).toBeGreaterThan(0);
   });
+
+  it('respects a wider configured width band (e.g. 15-30%) instead of the 1-15% default', () => {
+    const candles = buildChannelCandles(100, 125, 60); // 25% wide
+    const pivots = findPivots(candles, 3);
+    const levels = clusterLevels(pivots);
+
+    const withDefault = detectChannels(candles, levels, { maxSpanCandles: Infinity });
+    expect(withDefault).toHaveLength(0); // 25% wide is rejected by the default 1-15% band
+
+    const withWideBand = detectChannels(candles, levels, { maxSpanCandles: Infinity, minWidthPct: 15, maxWidthPct: 30 });
+    expect(withWideBand.length).toBeGreaterThan(0);
+    expect(withWideBand[0].widthPct).toBeGreaterThanOrEqual(15);
+    expect(withWideBand[0].widthPct).toBeLessThanOrEqual(30);
+  });
 });

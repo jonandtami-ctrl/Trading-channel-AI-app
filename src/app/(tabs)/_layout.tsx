@@ -47,6 +47,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="swing"
+        options={{
+          title: 'Swing',
+          tabBarIcon: ({ focused }) => (
+            <TabBarIcon focused={focused} icon="trending-up-outline" iconFocused="trending-up" label="Swing" />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="journal"
         options={{
           title: 'Journal',

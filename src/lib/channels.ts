@@ -27,10 +27,12 @@ const MAX_SPAN_CANDLES = 25;
 export function detectChannels(
   candles: Candle[],
   levels: Level[],
-  opts: { maxSpanCandles?: number } = {}
+  opts: { maxSpanCandles?: number; minWidthPct?: number; maxWidthPct?: number } = {}
 ): Channel[] {
   if (candles.length === 0) return [];
   const maxSpanCandles = opts.maxSpanCandles ?? MAX_SPAN_CANDLES;
+  const minWidthPct = opts.minWidthPct ?? MIN_WIDTH_PCT;
+  const maxWidthPct = opts.maxWidthPct ?? MAX_WIDTH_PCT;
 
   const supports = levels.filter((l) => l.type === 'support' && l.touches.length >= MIN_TOUCHES);
   const resistances = levels.filter((l) => l.type === 'resistance' && l.touches.length >= MIN_TOUCHES);
@@ -42,7 +44,7 @@ export function detectChannels(
       if (resistance.price <= support.price) continue;
 
       const widthPct = ((resistance.price - support.price) / support.price) * 100;
-      if (widthPct < MIN_WIDTH_PCT || widthPct > MAX_WIDTH_PCT) continue;
+      if (widthPct < minWidthPct || widthPct > maxWidthPct) continue;
 
       const firstTouchIndex = Math.min(
         support.touches[0].index,
